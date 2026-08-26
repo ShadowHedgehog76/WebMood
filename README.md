@@ -247,6 +247,46 @@ canvas, les fils et branches sont reconstruits depuis leur géométrie, et les b
 DOM) passent par un `foreignObject` SVG — avec les canvas remplacés par leur bitmap et les
 champs de saisie réinjectés, sans quoi ils sortiraient vides ([export.js](src/lib/export.js)).
 
+## Partage et collaboration
+
+Le rail propose **Partager ce tableau**, qui ouvre deux façons de faire
+([ShareDialog.jsx](src/components/ShareDialog.jsx)).
+
+### Code de partage (hors ligne)
+
+Le tableau entier est sérialisé, compressé (`CompressionStream`, deflate brut) puis encodé en
+base64url ([share.js](src/lib/share.js)) : un tableau avec une note et un trait de 200 points
+tient dans **~1 ko** de texte. On le transmet comme on veut ; la personne qui le colle obtient
+une **copie indépendante** dans un nouveau tableau.
+
+### Session pair-à-pair (temps réel)
+
+L'hôte ouvre une session et obtient un **code à six caractères** ; chaque personne qui le
+saisit rejoint le tableau. Les navigateurs se parlent **directement en WebRTC**
+([session.js](src/lib/session.js), PeerJS chargé à la demande) — un annuaire public sert
+uniquement à la mise en relation, aucune donnée du tableau n'y transite.
+
+Tout est envoyé **en continu, jamais par à-coups** :
+
+| Ce qui circule | Cadence | Effet |
+| --- | --- | --- |
+| Curseurs | une fois par image | chaque curseur porte le nom de la personne |
+| Déplacements et redimensionnements | une fois par image, positions seules | le bloc suit la main, sans saut |
+| Traits en cours | à chaque nouveau point | le trait se dessine chez les autres pendant qu'on le trace |
+| Document complet | 220 ms après une modification | filet de sécurité qui remet tout le monde d'accord |
+
+Les curseurs reçus alimentent une cible, et une boucle d'animation les en rapproche image par
+image ([RemoteCursors.jsx](src/components/RemoteCursors.jsx)) : le mouvement reste fluide même
+si le réseau livre les positions irrégulièrement.
+
+Un **tchat** apparaît à droite pendant la session ([ChatPanel.jsx](src/components/ChatPanel.jsx)),
+avec un compteur de messages non lus quand il est replié.
+
+La topologie est en étoile : l'hôte relaie les messages entre les invités. Un invité n'émet
+son document qu'après avoir reçu celui de l'hôte, sinon un arrivant au tableau vide effacerait
+le travail de tout le monde. **Qui a le code peut rejoindre** : ne le diffusez qu'aux personnes
+concernées.
+
 ## Vue d'ensemble
 
 Une **minimap** en bas à gauche montre les blocs en miniature et le cadre de la vue courante ;
@@ -288,6 +328,9 @@ src/
     ContextBar.jsx          barre des réglages du moment, largeur animée
     BoardRail.jsx           barre latérale : tableaux, vignettes, export PNG/JSON, import
     Minimap.jsx             vue d'ensemble et navigation
+    ShareDialog.jsx         code de partage et session pair-à-pair
+    ChatPanel.jsx           tchat de session
+    RemoteCursors.jsx       curseurs des participants, interpolés
     Icons.jsx               jeu d'icônes SVG inline (aucune dépendance)
     BoardItem.jsx           élément image / code / visuel / groupe : déplacer, redimensionner
     BoardItem.css
@@ -312,6 +355,8 @@ src/
     align.js                alignement d'une sélection multiple
     snap.js                 aimantation aux bords et centres voisins
     export.js               export PNG (canvas + foreignObject) et JSON
+    share.js                code de partage : compression et encodage
+    session.js              session WebRTC : connexions, relais, messages
     preview.js              vignette d'un tableau : rectangles normalisés stockés dans l'index
     palette.js              palette générée (16 teintes × 5 valeurs + gris)
 ```

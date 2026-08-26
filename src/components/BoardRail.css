@@ -253,3 +253,12 @@
     width: 52px;
   }
 }
+
+.rail__action.is-live svg {
+  color: #30a46c;
+}
+
+.rail__action.is-live span:not(.rail__slot) {
+  color: #278a58;
+  font-weight: 500;
+}

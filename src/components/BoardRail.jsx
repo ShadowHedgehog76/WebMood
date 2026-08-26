@@ -6,6 +6,7 @@ import {
   IconCopy,
   IconExportSelection,
   IconImage,
+  IconShare,
   IconTrash,
   IconUpload,
 } from './Icons.jsx'
@@ -50,6 +51,8 @@ export default function BoardRail({
   onExportSelection,
   onExportJson,
   onImportJson,
+  onShare,
+  live,
   hasSelection,
 }) {
   const current = boards.find((board) => board.id === currentId)
@@ -117,6 +120,15 @@ export default function BoardRail({
             <IconTrash size={18} />
           </span>
           <span>Supprimer ce tableau</span>
+        </button>
+
+        <span className="rail__sep" />
+
+        <button className={`rail__action ${live ? 'is-live' : ''}`} onClick={onShare}>
+          <span className="rail__slot">
+            <IconShare size={18} />
+          </span>
+          <span>{live ? 'Session en cours' : 'Partager ce tableau'}</span>
         </button>
 
         <span className="rail__sep" />

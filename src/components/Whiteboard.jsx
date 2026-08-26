@@ -4,6 +4,11 @@ import ShapeBlock from './ShapeBlock.jsx'
 import Toolbar from './Toolbar.jsx'
 import BoardRail from './BoardRail.jsx'
 import Minimap from './Minimap.jsx'
+import RemoteCursors from './RemoteCursors.jsx'
+import ShareDialog from './ShareDialog.jsx'
+import ChatPanel from './ChatPanel.jsx'
+import { decodeBoard } from '../lib/share.js'
+import { makeCode, openSession } from '../lib/session.js'
 import { snapPosition } from '../lib/snap.js'
 import { IconMinus, IconPlus } from './Icons.jsx'
 import Links from './Links.jsx'
@@ -114,6 +119,13 @@ export default function Whiteboard() {
   const itemsRef = useRef(null)
   const boardIdRef = useRef(null)
   const boardsRef = useRef([])
+  const sessionRef = useRef(null)
+  const fromRemote = useRef(false)
+  const cursorTargets = useRef(new Map()) // id → position visée, lue par la boucle d'animation
+  const remoteInk = useRef(new Map()) // traits des autres, en cours de tracé
+  const outbox = useRef({ ids: new Set(), frame: 0 })
+  const gotRemoteDoc = useRef(false)
+  const chatOpenRef = useRef(false)
 
   const [doc, setDoc] = useState(EMPTY_DOC)
   const [tool, setTool] = useState('pen')
@@ -136,6 +148,17 @@ export default function Whiteboard() {
   const [tip, setTip] = useState(null)
   const [boards, setBoards] = useState([])
   const [boardId, setBoardId] = useState(null)
+  const [share, setShare] = useState(false)
+  const [session, setSession] = useState(null)
+  const [peers, setPeers] = useState([])
+  const [chat, setChat] = useState([])
+  const [chatOpen, setChatOpen] = useState(false)
+  const [unread, setUnread] = useState(0)
+  const [liveStatus, setLiveStatus] = useState('idle')
+  const [liveError, setLiveError] = useState(null)
+  const [peerName, setPeerName] = useState(
+    () => localStorage.getItem('moodboard:name') ?? 'Invité',
+  )
   const [status, setStatus] = useState('loading')
   const [dropping, setDropping] = useState(false)
 
@@ -333,6 +356,9 @@ export default function Whiteboard() {
     [applyDoc, boards, commitIndex],
   )
 
+  const createBoardRef = useRef(null)
+  createBoardRef.current = createBoard
+
   const renameBoard = useCallback(
     (name) => {
       const list = boards.map((board) => (board.id === boardId ? { ...board, name } : board))
@@ -390,6 +416,192 @@ export default function Whiteboard() {
       }
     },
     [createBoard],
+  )
+
+  /* ---------- partage et collaboration ---------- */
+
+  /** Applique un document reçu : pas d'entrée d'historique, pas de renvoi en boucle. */
+  const applyRemote = useCallback((incoming) => {
+    if (!incoming) return
+    fromRemote.current = true
+    const next = {
+      strokes: incoming.strokes ?? [],
+      items: incoming.items ?? [],
+      links: incoming.links ?? [],
+    }
+    docRef.current = next
+    setDoc(next)
+  }, [])
+
+  /** Positions et tailles à jour des blocs cités, pour un envoi compact. */
+  const snapshotOf = (ids) =>
+    [...ids]
+      .map((id) => docRef.current.items.find((item) => item.id === id))
+      .filter(Boolean)
+      .map(({ id, x, y, w, h }) => ({ id, x, y, w, h }))
+
+  /**
+   * Envoi des déplacements en cours : une fois par image, sans attendre la fin du geste.
+   * C'est ce qui évite l'effet « saut » chez les autres participants.
+   */
+  const streamItems = useCallback((ids) => {
+    if (!sessionRef.current || !ids?.length) return
+    for (const id of ids) outbox.current.ids.add(id)
+    if (outbox.current.frame) return
+
+    outbox.current.frame = requestAnimationFrame(() => {
+      outbox.current.frame = 0
+      const list = snapshotOf(outbox.current.ids)
+      outbox.current.ids.clear()
+      if (list.length) sessionRef.current?.send({ t: 'items', list })
+    })
+  }, [])
+
+  const receive = useCallback(
+    (message, from) => {
+      switch (message.t) {
+        case 'join':
+          sessionRef.current?.sendTo(from, { t: 'doc', doc: docRef.current })
+          break
+
+        case 'doc':
+          gotRemoteDoc.current = true
+          applyRemote(message.doc)
+          // Le document reçu contient les traits terminés : on retire nos copies vivantes.
+          for (const [id, ink] of remoteInk.current) {
+            if (message.doc?.strokes?.some((stroke) => stroke.id === ink.id)) {
+              remoteInk.current.delete(id)
+            }
+          }
+          painters.current.paintStrokes()
+          break
+
+        case 'items': {
+          const patch = new Map(message.list.map((entry) => [entry.id, entry]))
+          fromRemote.current = true
+          const next = {
+            ...docRef.current,
+            items: docRef.current.items.map((item) => {
+              const update = patch.get(item.id)
+              return update ? { ...item, ...update } : item
+            }),
+          }
+          docRef.current = next
+          setDoc(next)
+          break
+        }
+
+        case 'ink': {
+          const ink = remoteInk.current.get(from)
+          if (ink && ink.id === message.id) ink.points.push(...message.points)
+          else remoteInk.current.set(from, { ...message.stroke, points: [...message.points] })
+          painters.current.paintStrokes()
+          break
+        }
+
+        case 'cursor':
+          cursorTargets.current.set(from, { x: message.x, y: message.y })
+          break
+
+        case 'chat':
+          setChat((current) => [...current.slice(-199), { ...message, id: `${from}-${message.at}` }])
+          setUnread((count) => (chatOpenRef.current ? 0 : count + 1))
+          break
+
+        case 'left':
+          cursorTargets.current.delete(from)
+          remoteInk.current.delete(from)
+          painters.current.paintStrokes()
+          break
+
+        default:
+          break
+      }
+    },
+    [applyRemote],
+  )
+
+  const connect = useCallback(
+    async ({ host, code }) => {
+      setLiveError(null)
+      setLiveStatus('connecting')
+      try {
+        const handle = await openSession({
+          host,
+          code: host ? makeCode() : code,
+          name: peerName,
+          onPeers: setPeers,
+          onMessage: receive,
+        })
+        gotRemoteDoc.current = false
+        sessionRef.current = handle
+        setSession(handle)
+        setChatOpen(true)
+        setLiveStatus('ready')
+      } catch (error) {
+        setLiveStatus('idle')
+        setLiveError(
+          error?.type === 'unavailable-id'
+            ? 'Ce code est déjà pris, réessayez.'
+            : (error?.message ?? 'Connexion impossible'),
+        )
+      }
+    },
+    [receive, peerName],
+  )
+
+  const leaveSession = useCallback(() => {
+    sessionRef.current?.close()
+    sessionRef.current = null
+    setSession(null)
+    setPeers([])
+    cursorTargets.current.clear()
+    remoteInk.current.clear()
+    setChat([])
+    setChatOpen(false)
+    setLiveStatus('idle')
+  }, [])
+
+  useEffect(() => () => sessionRef.current?.close(), [])
+
+  useEffect(() => {
+    localStorage.setItem('moodboard:name', peerName)
+  }, [peerName])
+
+  useEffect(() => {
+    chatOpenRef.current = chatOpen
+    if (chatOpen) setUnread(0)
+  }, [chatOpen])
+
+  // Toute modification locale part aux autres, sauf celles qui viennent d'eux.
+  // Un invité attend d'avoir reçu le tableau de l'hôte : sans ça, un arrivant au
+  // tableau vide écraserait celui de tout le monde.
+  useEffect(() => {
+    if (!session) return undefined
+    if (!session.isHost && !gotRemoteDoc.current) return undefined
+    if (fromRemote.current) {
+      fromRemote.current = false
+      return undefined
+    }
+    const timer = setTimeout(() => session.send({ t: 'doc', doc: docRef.current }), 220)
+    return () => clearTimeout(timer)
+  }, [doc, session])
+
+  const importCode = useCallback(
+    async (code) => {
+      try {
+        const data = await decodeBoard(code)
+        await createBoardRef.current(data.name, {
+          strokes: data.strokes,
+          items: data.items,
+          links: data.links,
+        })
+        setShare(false)
+      } catch (error) {
+        setLiveError(error?.message ?? 'Code illisible')
+      }
+    },
+    [],
   )
 
   /* ---------- rendu canvas ---------- */
@@ -500,6 +712,7 @@ export default function Whiteboard() {
       }
       strokePath(ctx, stroke)
     }
+    for (const ink of remoteInk.current.values()) strokePath(ctx, ink)
     if (liveStroke.current) strokePath(ctx, liveStroke.current)
   }, [doc.strokes, strokePath, boundsOf])
 
@@ -572,6 +785,8 @@ export default function Whiteboard() {
     [commit],
   )
 
+  const touched = useRef([])
+
   const changeItem = useCallback(
     (id, patch, recordHistory) => {
       write((d) => {
@@ -608,10 +823,16 @@ export default function Whiteboard() {
         if (next.type === 'group' && next.autoSort && (patch.w !== undefined || patch.h !== undefined)) {
           items = layoutGroup(items, next)
         }
+        if (sessionRef.current) touched.current = [id, ...(moving ?? [])]
         return { ...d, items }
       }, recordHistory)
+
+      if (touched.current.length) {
+        streamItems(touched.current)
+        touched.current = []
+      }
     },
-    [write],
+    [write, streamItems],
   )
 
   /** Aimante un bloc déplacé seul aux bords et centres des autres. */
@@ -1104,11 +1325,20 @@ export default function Whiteboard() {
       move.draft = toWorld(event.clientX, event.clientY)
     } else if (liveStroke.current) {
       const events = event.nativeEvent.getCoalescedEvents?.() ?? [event.nativeEvent]
-      for (const e of events) {
-        liveStroke.current.points.push(toWorld(e.clientX, e.clientY))
-      }
+      const fresh = events.map((e) => toWorld(e.clientX, e.clientY))
+      liveStroke.current.points.push(...fresh)
       move.paint = true
+      if (sessionRef.current) {
+        sessionRef.current.send({
+          t: 'ink',
+          id: liveStroke.current.id,
+          stroke: liveStroke.current,
+          points: fresh,
+        })
+      }
     }
+
+    if (sessionRef.current) move.cursor = toWorld(event.clientX, event.clientY)
 
     nextMove.current = move
     scheduleFrame()
@@ -1197,6 +1427,13 @@ export default function Whiteboard() {
     if (move.draft && draftRef.current) {
       draftRef.current = { ...draftRef.current, to: move.draft }
       setDraft({ ...draftRef.current })
+    }
+    if (move.cursor) {
+      sessionRef.current?.send({
+        t: 'cursor',
+        x: move.cursor.x,
+        y: move.cursor.y,
+      })
     }
     if (move.paint) painters.current.paintStrokes()
   }, [])
@@ -1629,6 +1866,8 @@ export default function Whiteboard() {
               leaf={nodeInfo.get(item.id)?.leaf}
             />
           ))}
+          <RemoteCursors peers={peers} targets={cursorTargets} />
+
           {guides.map((guide, index) => (
             <span
               key={index}
@@ -1677,6 +1916,50 @@ export default function Whiteboard() {
         <canvas ref={drawRef} className="board__canvas" />
       </div>
 
+      <ShareDialog
+        open={share}
+        onClose={() => setShare(false)}
+        doc={doc}
+        boardName={boardName}
+        session={session}
+        peers={peers}
+        name={peerName}
+        setName={setPeerName}
+        status={liveStatus}
+        error={liveError}
+        onImportCode={importCode}
+        onHost={() => connect({ host: true })}
+        onJoin={(code) => connect({ host: false, code })}
+        onLeave={leaveSession}
+      />
+
+      {session && (
+        <ChatPanel
+          open={chatOpen}
+          setOpen={(value) => {
+            setChatOpen(value)
+            if (value) setUnread(0)
+          }}
+          messages={chat}
+          unread={unread}
+          selfName={peerName}
+          onSend={(text) => {
+            const message = {
+              t: 'chat',
+              name: peerName,
+              color: session.self.color,
+              text,
+              at: Date.now(),
+            }
+            session.send(message)
+            setChat((current) => [
+              ...current.slice(-199),
+              { ...message, id: `moi-${message.at}` },
+            ])
+          }}
+        />
+      )}
+
       <BoardRail
         boards={boards}
         currentId={boardId}
@@ -1689,6 +1972,8 @@ export default function Whiteboard() {
         onExportSelection={() => savePng(true)}
         onExportJson={saveJson}
         onImportJson={importJson}
+        onShare={() => setShare(true)}
+        live={Boolean(session)}
         hasSelection={selectedIds.length > 0}
       />
 

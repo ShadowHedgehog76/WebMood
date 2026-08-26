@@ -1,0 +1,23 @@
+.peer-cursor {
+  position: absolute;
+  display: flex;
+  align-items: flex-start;
+  gap: calc(2px * var(--inv, 1));
+  pointer-events: none;
+  z-index: 5;
+  transform: scale(var(--inv, 1));
+  transform-origin: 0 0;
+  /* Pas de transition : l'interpolation est faite image par image dans le composant. */
+}
+
+.peer-cursor__name {
+  margin-top: 12px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--peer);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(15, 15, 20, 0.2);
+}
