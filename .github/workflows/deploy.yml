@@ -10,10 +10,11 @@ permissions:
   pages: write
   id-token: write
 
-# Un seul déploiement à la fois, les pushs suivants annulent celui en cours.
+# Un seul déploiement à la fois. On n'annule jamais celui en cours : un déploiement Pages
+# interrompu reste bloqué en « updating_pages ». Les pushs suivants attendent leur tour.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -37,6 +38,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
