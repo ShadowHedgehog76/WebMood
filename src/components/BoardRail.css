@@ -94,6 +94,9 @@
 }
 
 .rail__board {
+  transition:
+    background var(--fast) ease,
+    transform var(--fast) var(--ease-spring);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -261,4 +264,19 @@
 .rail__action.is-live span:not(.rail__slot) {
   color: #278a58;
   font-weight: 500;
+}
+
+.rail__board:active,
+.rail__action:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.rail__action {
+  transition:
+    background var(--fast) ease,
+    transform var(--fast) var(--ease-spring);
+}
+
+.thumb {
+  transition: box-shadow var(--base) ease, border-color var(--base) ease;
 }

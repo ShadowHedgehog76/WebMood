@@ -27,6 +27,7 @@ function BoardItem({
   interactive,
   draggable,
   linkTarget,
+  tween,
   toWorld,
   onSelect,
   onChange,
@@ -122,6 +123,7 @@ function BoardItem({
         selected ? 'is-selected' : '',
         editing ? 'is-editing' : '',
         linkTarget ? 'is-link-target' : '',
+        tween ? 'is-tween' : '',
       ]
         .filter(Boolean)
         .join(' ')}

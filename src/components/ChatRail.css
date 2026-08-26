@@ -85,6 +85,7 @@
 }
 
 .chat-rail__avatar {
+  animation: avatar-in var(--slow) var(--ease-spring);
   display: grid;
   place-items: center;
   width: 32px;
@@ -153,6 +154,7 @@
 }
 
 .chat-rail__msg {
+  animation: msg-in var(--base) var(--ease);
   margin: 0;
   padding: 8px 10px;
   border-radius: 10px;
@@ -224,4 +226,22 @@
   font-style: italic;
   text-align: center;
   padding: 2px 0;
+}
+
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes avatar-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+.chat-rail__unread {
+  animation: avatar-in var(--base) var(--ease-spring);
 }

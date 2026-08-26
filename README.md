@@ -350,6 +350,24 @@ après chaque modification dans **IndexedDB** (`moodboard` › `boards`), un enr
 tableau plus un index, avec repli sur `localStorage`. L'indicateur en bas à droite affiche l'état. Tout est rechargé au
 démarrage ; le bouton 🗑 vide le tableau (annulable avec `⌘Z`).
 
+## Animations
+
+Durées et courbes sont trois variables partagées (`--fast`, `--base`, `--slow`, plus deux
+courbes) définies dans [index.css](src/index.css), pour que tout bouge de la même façon :
+
+- les blocs **apparaissent** avec un léger ressort, les poignées de sélection aussi ;
+- une **remise en page automatique** (changement de disposition d'une carte mentale, tri d'un
+  groupe, alignement d'une sélection) fait **glisser les blocs** vers leur nouvelle place au
+  lieu de les téléporter — et uniquement dans ce cas : pendant un glisser à la souris, aucune
+  transition, sinon le bloc traînerait derrière le curseur ;
+- menus, palette, menu contextuel, infobulle, fenêtre de partage et messages du tchat entrent
+  en fondu-glissé ; les boutons s'enfoncent légèrement au clic ;
+- les rails, la barre de réglages et les curseurs distants ont leurs propres animations,
+  décrites plus haut.
+
+Tout est neutralisé d'un bloc si le système demande **moins de mouvement**
+(`prefers-reduced-motion`).
+
 ## Performance
 
 Le tableau reste à 120 fps en déplacement, même dézoomé et chargé :

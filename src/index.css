@@ -1,7 +1,28 @@
+/* Vocabulaire commun des animations : mêmes durées, mêmes courbes partout. */
+:root {
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+  --fast: 0.14s;
+  --base: 0.22s;
+  --slow: 0.32s;
+}
+
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* Une personne qui préfère moins de mouvement n'en a plus du tout. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 html,

@@ -2,6 +2,36 @@
   position: absolute;
   border-radius: calc(10px * var(--inv));
   cursor: default;
+  animation: item-in var(--base) var(--ease-spring);
+}
+
+@keyframes item-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+/* Uniquement quand une mise en page automatique déplace les blocs : pendant un
+   glisser, la moindre transition donnerait un bloc qui traîne derrière la souris. */
+.item.is-tween {
+  transition:
+    left var(--slow) var(--ease),
+    top var(--slow) var(--ease),
+    width var(--slow) var(--ease),
+    height var(--slow) var(--ease);
+}
+
+.item__delete,
+.item__handle {
+  animation: handle-in var(--fast) var(--ease-spring);
+}
+
+@keyframes handle-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
 }
 
 .item.is-link-target:hover {

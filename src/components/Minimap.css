@@ -1,4 +1,5 @@
 .minimap {
+  animation: fade-in var(--slow) ease;
   position: absolute;
   right: 96px;
   bottom: 24px;
@@ -15,6 +16,7 @@
 
 .minimap__item {
   position: absolute;
+  transition: left var(--base) var(--ease), top var(--base) var(--ease);
   border-radius: 2px;
   background: #c4c4cd;
 }
@@ -38,6 +40,7 @@
 
 @media (max-width: 640px) {
   .minimap {
+  animation: fade-in var(--slow) ease;
     display: none;
   }
 }

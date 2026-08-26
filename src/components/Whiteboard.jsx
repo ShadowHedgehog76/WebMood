@@ -170,6 +170,7 @@ export default function Whiteboard() {
   const [bubbles, setBubbles] = useState(new Map())
   const [shaking, setShaking] = useState(new Set())
   const [pings, setPings] = useState([])
+  const [tween, setTween] = useState(false) // les blocs glissent vers leur nouvelle place
   const [quick, setQuick] = useState(null) // saisie rapide ouverte à la position du curseur
   const [liveStatus, setLiveStatus] = useState('idle')
   const [liveError, setLiveError] = useState(null)
@@ -255,6 +256,16 @@ export default function Whiteboard() {
   }, [])
 
   const commit = useCallback((producer) => write(producer, true), [write])
+
+  /** Enrobe une remise en page : le temps de l'animation, les blocs glissent. */
+  const animated = useCallback(
+    (run) => {
+      setTween(true)
+      run()
+      setTimeout(() => setTween(false), 360)
+    },
+    [],
+  )
 
   const restore = useCallback((from, to) => {
     if (!from.current.length) return
@@ -1151,6 +1162,7 @@ export default function Whiteboard() {
 
   const applyAlign = useCallback(
     (mode) => {
+      animated(() =>
       commit((d) => {
         const patches = alignItems(d.items, selectionRef.current.items, mode)
         if (!patches.length) return d
@@ -1178,9 +1190,9 @@ export default function Whiteboard() {
             return delta ? { ...item, x: item.x + delta.dx, y: item.y + delta.dy } : item
           }),
         }
-      })
+      }))
     },
-    [commit],
+    [commit, animated],
   )
 
   const addCodeBlock = useCallback(() => {
@@ -1290,12 +1302,14 @@ export default function Whiteboard() {
         docRef.current.items.filter((item) => item.type === 'node'),
         node,
       )
-      commit((d) => {
-        const items = d.items.map((item) => (item.id === root.id ? { ...item, layout } : item))
-        return { ...d, items: applyTreeLayout(items, root.id) }
-      })
+      animated(() =>
+        commit((d) => {
+          const items = d.items.map((item) => (item.id === root.id ? { ...item, layout } : item))
+          return { ...d, items: applyTreeLayout(items, root.id) }
+        }),
+      )
     },
-    [commit],
+    [commit, animated],
   )
 
   const addChild = useCallback(
@@ -1321,17 +1335,19 @@ export default function Whiteboard() {
         color: parent.color,
       })
 
-      commit((d) => {
-        const items = [...d.items, child]
-        const nodes = items.filter((item) => item.type === 'node')
-        const root = rootOf(nodes, parent)
-        return { ...d, items: applyTreeLayout(items, root.id) }
-      })
+      animated(() =>
+        commit((d) => {
+          const items = [...d.items, child]
+          const nodes = items.filter((item) => item.type === 'node')
+          const root = rootOf(nodes, parent)
+          return { ...d, items: applyTreeLayout(items, root.id) }
+        }),
+      )
       setNodeMenu(null)
       setSelection({ items: [child.id], link: null })
       setEditingId(child.id)
     },
-    [commit],
+    [commit, animated],
   )
 
   /** Un frère, c'est un enfant de plus sur le parent. */
@@ -1400,6 +1416,7 @@ export default function Whiteboard() {
 
   const toggleAutoSort = useCallback(
     (id) => {
+      animated(() =>
       commit((d) => {
         let items = d.items.map((item) =>
           item.id === id ? { ...item, autoSort: !item.autoSort } : item,
@@ -1407,16 +1424,21 @@ export default function Whiteboard() {
         const group = items.find((item) => item.id === id)
         if (group.autoSort) items = layoutGroup(items, group)
         return { ...d, items }
-      })
+      }))
     },
-    [commit],
+    [commit, animated],
   )
 
   const sortGroupNow = useCallback(
     (id) => {
-      commit((d) => ({ ...d, items: layoutGroup(d.items, d.items.find((item) => item.id === id)) }))
+      animated(() =>
+        commit((d) => ({
+          ...d,
+          items: layoutGroup(d.items, d.items.find((item) => item.id === id)),
+        })),
+      )
     },
-    [commit],
+    [commit, animated],
   )
 
   /* ---------- connexions ---------- */
@@ -2133,6 +2155,7 @@ export default function Whiteboard() {
               interactive={interactive}
               draggable={tool === 'select'}
               linkTarget={linking}
+              tween={tween}
               toWorld={toWorld}
               onSelect={activateItem}
               onChange={changeItem}

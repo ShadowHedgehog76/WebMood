@@ -105,8 +105,25 @@
   background: rgba(0, 0, 0, 0.06);
 }
 
-.tool:active:not(:disabled) {
-  transform: scale(0.94);
+.tool:active:not(:disabled),
+.chip:active,
+.arrow:active,
+.size:active,
+.zoom button:active {
+  transform: scale(0.92);
+}
+
+.tool,
+.chip,
+.arrow,
+.size,
+.colorbtn,
+.zoom button {
+  transition:
+    background var(--fast) ease,
+    color var(--fast) ease,
+    transform var(--fast) var(--ease-spring),
+    box-shadow var(--fast) ease;
 }
 
 .tool.is-active {
@@ -232,6 +249,13 @@
   cursor: pointer;
 }
 
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+}
+
 /* ---------- barre de réglages, au-dessus de la barre d'outils ---------- */
 
 .context-bar {
@@ -338,10 +362,19 @@
   color: #fff;
 }
 
+@keyframes tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+
 /* ---------- menu contextuel des nœuds ---------- */
 
 .context {
   position: fixed;
+  animation: panel-in var(--fast) var(--ease-spring);
+  transform-origin: 0 0;
   z-index: 25;
   display: flex;
   flex-direction: column;
@@ -426,6 +459,7 @@
 
 .tip {
   position: fixed;
+  animation: tip-in var(--fast) var(--ease);
   z-index: 20;
   display: flex;
   align-items: center;
@@ -485,10 +519,17 @@
 
 .band {
   position: absolute;
+  animation: fade-in var(--fast) ease;
   pointer-events: none;
   border: calc(1px * var(--inv, 1)) solid #3b82f6;
   background: rgba(59, 130, 246, 0.1);
   border-radius: 2px;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
 }
 
 /* ---------- aperçu d'une forme en cours de tracé ---------- */
@@ -532,6 +573,8 @@
 .menu__panel {
   position: absolute;
   bottom: calc(100% + 14px);
+  animation: panel-in var(--base) var(--ease-spring);
+  transform-origin: 50% 110%;
   left: 50%;
   transform: translateX(-50%);
   display: flex;

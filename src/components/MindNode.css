@@ -56,6 +56,10 @@
 }
 
 .node__check {
+  transition:
+    background var(--fast) ease,
+    box-shadow var(--fast) ease,
+    transform var(--fast) var(--ease-spring);
   flex: 0 0 auto;
   display: grid;
   place-items: center;
@@ -75,6 +79,10 @@
 }
 
 .node.is-done .node__check {
+  transition:
+    background var(--fast) ease,
+    box-shadow var(--fast) ease,
+    transform var(--fast) var(--ease-spring);
   background: var(--tint);
   box-shadow: none;
 }
@@ -113,4 +121,12 @@
 
 .node.is-root .node__bar span {
   background: #fff;
+}
+
+.node__check:active {
+  transform: scale(0.86);
+}
+
+.node {
+  transition: background var(--base) ease, box-shadow var(--base) ease;
 }

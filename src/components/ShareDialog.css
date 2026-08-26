@@ -2,6 +2,7 @@
   position: absolute;
   inset: 0;
   z-index: 30;
+  animation: share-fade var(--base) ease;
   display: grid;
   place-items: center;
   background: rgba(20, 20, 26, 0.28);
@@ -9,6 +10,7 @@
 }
 
 .share__panel {
+  animation: share-pop var(--slow) var(--ease-spring);
   width: min(520px, calc(100vw - 40px));
   max-height: calc(100vh - 80px);
   overflow: auto;
@@ -205,4 +207,27 @@
   background: rgba(229, 72, 77, 0.1);
   color: #c2373b;
   font-size: 12.5px;
+}
+
+@keyframes share-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes share-pop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+}
+
+.share__btn {
+  transition:
+    background var(--fast) ease,
+    transform var(--fast) var(--ease-spring);
+}
+
+.share__btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
