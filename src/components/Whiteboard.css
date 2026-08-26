@@ -1,0 +1,621 @@
+.board {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.board__surface {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+.board__canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  /* les canevas ne doivent jamais intercepter le pointeur :
+     le déplacement/dessin est géré par .board__surface, la sélection par les éléments */
+  pointer-events: none;
+}
+
+/* Calque des éléments (images, code) : sous les traits, au-dessus de la grille.
+   `will-change` garde la couche en texture : un panoramique n'est alors qu'une
+   translation pour le compositeur, sans re-rastérisation du contenu. */
+.board__items {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.board__surface.is-dropping::after {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border: 2px dashed #3b82f6;
+  border-radius: 18px;
+  background: rgba(59, 130, 246, 0.05);
+  pointer-events: none;
+}
+
+/* ---------- barre d'outils ---------- */
+
+.toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  /* `max-content` : sans cela, la largeur disponible d'un élément posé à left:50%
+     s'arrête au bord droit et la barre se replierait trop tôt. */
+  width: max-content;
+  max-width: 94vw;
+  align-items: center;
+  gap: 5px;
+  padding: 8px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 12px 32px rgba(15, 15, 20, 0.14);
+  user-select: none;
+}
+
+.toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar__sep {
+  width: 1px;
+  height: 24px;
+  margin: 0 2px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.tool,
+.size,
+.colorbtn {
+  display: grid;
+  place-items: center;
+  border: 0;
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.tool {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.tool:hover:not(:disabled),
+.size:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.tool:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.tool.is-active {
+  background: #1c1c1e;
+  color: #fff;
+}
+
+.tool:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.tool--danger:hover {
+  background: rgba(229, 72, 77, 0.14);
+}
+
+.size {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+}
+
+.size span {
+  display: block;
+  border-radius: 50%;
+  background: #1c1c1e;
+}
+
+.size.is-active {
+  background: rgba(0, 0, 0, 0.09);
+}
+
+/* ---------- couleur ---------- */
+
+.colorbtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at center, var(--swatch) 0 12px, transparent 12px),
+    conic-gradient(#e5484d, #f5a623, #30a46c, #3b82f6, #8b5cf6, #e5484d);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.colorbtn.is-active {
+  box-shadow: 0 0 0 2px #1c1c1e;
+}
+
+.menu__panel--palette {
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.palette__quick,
+.palette__row {
+  display: flex;
+  gap: 3px;
+}
+
+.palette__quick {
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.palette__quick button,
+.palette__custom {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+}
+
+.palette__row button {
+  width: 17px;
+  height: 17px;
+  border-radius: 5px;
+}
+
+.menu__panel--palette .palette__quick button,
+.menu__panel--palette .palette__row button {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  transition: transform 0.1s ease;
+}
+
+.palette__row button:hover,
+.palette__quick button:hover {
+  transform: scale(1.18);
+}
+
+.palette__row button.is-active {
+  box-shadow: 0 0 0 2px #1c1c1e;
+}
+
+.palette__custom {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.palette__custom::after {
+  content: '+';
+  color: #fff;
+  font-size: 13px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.palette__custom input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* ---------- barre de réglages, au-dessus de la barre d'outils ---------- */
+
+.context-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 90px;
+  z-index: 14;
+  height: 44px;
+  padding: 6px;
+  /* la palette déborde vers le haut : pas de découpe ici */
+  overflow: visible;
+  box-sizing: border-box;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 10px 26px rgba(15, 15, 20, 0.14);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(10px) scale(0.94);
+  transform-origin: 50% 120%;
+  transition:
+    opacity 0.16s ease,
+    transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1),
+    width 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.context-bar.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.context-bar__sep {
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  background: rgba(0, 0, 0, 0.09);
+}
+
+.context-bar .chip {
+  background: transparent;
+}
+
+.context-bar .chip:hover:not(.is-active) {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.context-bar__inner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: max-content;
+  height: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .context-bar {
+    transition: opacity 0.12s ease;
+  }
+}
+
+/* ---------- réglages contextuels (groupe) ---------- */
+
+.chip {
+  height: 30px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.05);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  background: rgba(0, 0, 0, 0.09);
+}
+
+.chip.is-active {
+  background: #1c1c1e;
+  color: #fff;
+}
+
+/* ---------- flèches de connexion ---------- */
+
+.arrow {
+  width: 34px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.arrow:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.arrow.is-active {
+  background: #1c1c1e;
+  color: #fff;
+}
+
+/* ---------- menu contextuel des nœuds ---------- */
+
+.context {
+  position: fixed;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  min-width: 178px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  box-shadow: 0 14px 34px rgba(15, 15, 20, 0.2);
+}
+
+.context button {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.context__sep {
+  height: 1px;
+  margin: 3px 6px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.context button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.context kbd {
+  font: inherit;
+  font-size: 11px;
+  color: #9a9aa3;
+}
+
+.context button:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.context__danger {
+  color: #e5484d;
+}
+
+.context__danger:hover {
+  background: rgba(229, 72, 77, 0.12);
+}
+
+/* ---------- infobulle qui suit la souris ---------- */
+
+.tip {
+  position: fixed;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: rgba(28, 28, 30, 0.92);
+  color: #fff;
+  font-size: 11.5px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(15, 15, 20, 0.24);
+}
+
+.tip kbd {
+  font: inherit;
+  font-size: 10.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 84px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  color: #2f6fd0;
+  font-size: 11.5px;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ---------- repères d'aimantation ---------- */
+
+.guide {
+  position: absolute;
+  background: #e5484d;
+  pointer-events: none;
+}
+
+.guide--x {
+  width: calc(1px * var(--inv, 1));
+  transform: translateX(-50%);
+}
+
+.guide--y {
+  height: calc(1px * var(--inv, 1));
+  transform: translateY(-50%);
+}
+
+/* ---------- rectangle de sélection ---------- */
+
+.band {
+  position: absolute;
+  pointer-events: none;
+  border: calc(1px * var(--inv, 1)) solid #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 2px;
+}
+
+/* ---------- aperçu d'une forme en cours de tracé ---------- */
+
+.item--draft {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.menu__panel--shapes button {
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.menu__panel--shapes em {
+  font-style: normal;
+  color: #8a8a93;
+  font-size: 11.5px;
+}
+
+.menu__panel--shapes button.is-active {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.chip--icon {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  width: 34px;
+  height: 32px;
+}
+
+/* ---------- menu des blocs visuels ---------- */
+
+.menu {
+  position: relative;
+}
+
+.menu__panel {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  min-width: 156px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 14px 34px rgba(15, 15, 20, 0.18);
+}
+
+.menu__panel:not(.menu__panel--palette) button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu__panel:not(.menu__panel--palette) button:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.menu__panel strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.menu__panel span {
+  font-size: 11px;
+  color: #8a8a93;
+}
+
+/* ---------- zoom ---------- */
+
+.zoom {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 12px 32px rgba(15, 15, 20, 0.14);
+  user-select: none;
+}
+
+.zoom button {
+  min-width: 32px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.zoom button:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.zoom__label {
+  font-size: 12px !important;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+/* ---------- état d'enregistrement ---------- */
+
+.status {
+  position: absolute;
+  left: 26px;
+  bottom: 26px;
+  margin: 0;
+  font-size: 11px;
+  color: #9a9aa3;
+  user-select: none;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.status--saving {
+  color: #b0b0b8;
+}
+
+.status--error {
+  color: #e5484d;
+}
+
+.status--loading {
+  opacity: 0;
+}
+
+@media (max-width: 640px) {
+  .status {
+    display: none;
+  }
+  .toolbar {
+    bottom: 12px;
+    gap: 2px;
+    padding: 6px;
+  }
+}

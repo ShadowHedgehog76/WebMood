@@ -1,0 +1,116 @@
+.node {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: calc(12px * var(--inv));
+  background: #fff;
+  box-shadow:
+    inset 0 0 0 calc(1.5px * var(--inv)) color-mix(in srgb, var(--tint) 45%, transparent),
+    0 calc(4px * var(--inv)) calc(14px * var(--inv)) rgba(15, 15, 20, 0.1);
+}
+
+.node.is-root {
+  background: var(--tint);
+  color: #fff;
+  box-shadow: 0 calc(6px * var(--inv)) calc(20px * var(--inv)) rgba(15, 15, 20, 0.18);
+}
+
+.node.is-done:not(.is-root) {
+  background: color-mix(in srgb, var(--tint) 10%, #fff);
+}
+
+.node__row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.node__text,
+.node__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node.is-root .node__text,
+.node.is-root .node__input {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.node__input {
+  border: 0;
+  padding: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+}
+
+.node__check {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #fff;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--tint) 55%, transparent);
+}
+
+.node__check:hover {
+  background: color-mix(in srgb, var(--tint) 12%, transparent);
+}
+
+.node.is-done .node__check {
+  background: var(--tint);
+  box-shadow: none;
+}
+
+.node__percent {
+  flex: 0 0 auto;
+  min-width: 34px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--tint) 70%, #3a3a40);
+}
+
+.node.is-root .node__percent {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.node__bar {
+  height: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--tint) 18%, transparent);
+}
+
+.node.is-root .node__bar {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.node__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tint);
+  transition: width 0.25s ease;
+}
+
+.node.is-root .node__bar span {
+  background: #fff;
+}

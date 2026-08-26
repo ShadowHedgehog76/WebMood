@@ -1,0 +1,46 @@
+.text {
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.text--note {
+  background: var(--tint);
+  box-shadow: 0 calc(5px * var(--inv)) calc(16px * var(--inv)) rgba(15, 15, 20, 0.16);
+}
+
+.text__body {
+  height: 100%;
+  margin: 0;
+  padding: 14px 16px;
+  overflow: auto;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+}
+
+.text--plain .text__body {
+  padding: 8px 10px;
+  font-weight: 500;
+}
+
+.text__body.is-empty {
+  opacity: 0.45;
+}
+
+.text__input {
+  width: 100%;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  caret-color: currentColor;
+}
+
+.text__input::placeholder {
+  color: currentColor;
+  opacity: 0.45;
+}

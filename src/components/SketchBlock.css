@@ -1,0 +1,147 @@
+.sketch {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: inherit;
+  background: #14141a;
+  color: #e7e7ea;
+  box-shadow: 0 calc(6px * var(--inv)) calc(20px * var(--inv)) rgba(15, 15, 20, 0.22);
+}
+
+.sketch__bar {
+  flex: 0 0 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.sketch__badge {
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(139, 92, 246, 0.22);
+  color: #c6b2ff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.sketch__name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #8f8f9c;
+}
+
+.sketch__actions {
+  display: flex;
+  gap: 2px;
+}
+
+.sketch__actions button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #9a9aa6;
+  font-size: 10.5px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sketch__actions button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  color: #e7e7ea;
+}
+
+/* ---------- code à gauche, rendu à droite ---------- */
+
+.sketch__split {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.sketch__code {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: #0d0d12;
+  color: #e7e7ea;
+  caret-color: #8b5cf6;
+  font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.55;
+  tab-size: 2;
+  /* le volet est étroit : on préfère replier les lignes plutôt que scroller */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: auto;
+}
+
+.sketch__divider {
+  flex: 0 0 6px;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: col-resize;
+}
+
+.sketch__divider:hover {
+  background: rgba(139, 92, 246, 0.6);
+}
+
+.sketch__view {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  background: #0f1116;
+}
+
+.sketch__host {
+  position: relative;
+}
+
+.sketch__root {
+  position: absolute;
+  inset: 0;
+}
+
+.sketch__host,
+.sketch__root,
+.sketch__host canvas,
+.sketch__svg,
+.sketch__svg svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sketch__error {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 6px 10px;
+  background: rgba(229, 72, 77, 0.92);
+  color: #fff;
+  font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  max-height: 50%;
+  overflow: auto;
+}
