@@ -34,24 +34,21 @@
 }
 
 /* Replié, seuls les participants restent lisibles. */
-.chat-rail__title,
-.chat-rail__name,
-.chat-rail__list,
-.chat-rail__form {
+.chat-rail__name {
   opacity: 0;
   transition: opacity 0.16s ease;
 }
 
-.chat-rail.is-open .chat-rail__title,
-.chat-rail.is-open .chat-rail__name,
-.chat-rail.is-open .chat-rail__list,
-.chat-rail.is-open .chat-rail__form {
-  opacity: 1;
-}
-
+/* Ceux-là occuperaient de la hauteur pour rien et décaleraient les pastilles. */
+.chat-rail:not(.is-open) .chat-rail__title,
+.chat-rail:not(.is-open) .chat-rail__sep,
 .chat-rail:not(.is-open) .chat-rail__list,
 .chat-rail:not(.is-open) .chat-rail__form {
-  pointer-events: none;
+  display: none;
+}
+
+.chat-rail.is-open .chat-rail__name {
+  opacity: 1;
 }
 
 .chat-rail__title {
@@ -218,4 +215,13 @@
     right: 12px;
     width: 52px;
   }
+}
+
+.chat-rail__msg.is-system {
+  background: transparent;
+  color: #8a8a93;
+  font-size: 12px;
+  font-style: italic;
+  text-align: center;
+  padding: 2px 0;
 }

@@ -38,11 +38,36 @@ async function makePeer(id) {
  */
 const RELAYED = new Set(['doc', 'items', 'ink', 'inkEnd', 'cursor', 'chat'])
 
-export async function openSession({ host, code, name, onPeers, onMessage, onStatus }) {
+// Battement de cœur : l'hôte donne signe de vie, les invités surveillent.
+const PING_EVERY = 2000
+const HOST_TIMEOUT = 7000
+
+export function hostIdFor(code) {
+  return PREFIX + code
+}
+
+/** Le survivant au plus petit identifiant reprend la main : tout le monde calcule pareil. */
+export function electHost(survivors) {
+  return survivors.map((person) => person.id).sort()[0] ?? null
+}
+
+export async function openSession({
+  host,
+  code,
+  name,
+  onPeers,
+  onMessage,
+  onStatus,
+  onHostLost,
+}) {
   const self = { name: name || 'Invité' }
   const links = new Map() // id → connexion
   const people = new Map() // id → { id, name, color }
   let closed = false
+  let heartbeat = 0
+  let watchdog = 0
+  let lastSeen = Date.now() // dernier signe de vie de l'hôte (côté invité)
+  const seen = new Map() // id → dernier signe de vie (côté hôte)
 
   const announce = () => {
     onPeers?.([...people.values()])
@@ -75,6 +100,11 @@ export async function openSession({ host, code, name, onPeers, onMessage, onStat
 
     connection.on('data', (message) => {
       if (closed || !message?.t) return
+
+      // Toute réception vaut signe de vie, dans un sens comme dans l'autre.
+      seen.set(connection.peer, Date.now())
+      if (!host && connection.peer === hostIdFor(code)) lastSeen = Date.now()
+      if (message.t === 'ping') return
 
       switch (message.t) {
         case 'hello':
@@ -116,10 +146,43 @@ export async function openSession({ host, code, name, onPeers, onMessage, onStat
       links.delete(connection.peer)
       announce()
       onMessage?.({ t: 'left' }, connection.peer)
+      // L'hôte vient de tomber : on ne l'attend pas plus longtemps.
+      if (!host && connection.peer === hostIdFor(code)) hostGone()
     })
   }
 
+  const hostGone = () => {
+    if (closed) return
+    closed = true
+    clearInterval(heartbeat)
+    clearInterval(watchdog)
+
+    const survivors = [
+      { id: self.id, name: self.name, color: self.color },
+      ...[...people.values()].filter((person) => person.id !== hostIdFor(code)),
+    ]
+    const winner = electHost(survivors)
+    onHostLost?.({ survivors, winner, isWinner: winner === self.id })
+  }
+
+  const drop = (id) => {
+    people.delete(id)
+    links.get(id)?.close()
+    links.delete(id)
+    seen.delete(id)
+    announce()
+    onMessage?.({ t: 'left' }, id)
+  }
+
   if (host) {
+    heartbeat = setInterval(() => send({ t: 'ping', at: Date.now() }), PING_EVERY)
+    // Un invité disparu sans prévenir (onglet fermé, réseau coupé) finit par sortir.
+    watchdog = setInterval(() => {
+      const now = Date.now()
+      for (const id of [...links.keys()]) {
+        if (now - (seen.get(id) ?? now) > HOST_TIMEOUT) drop(id)
+      }
+    }, 2000)
     peer.on('connection', (connection) => {
       connection.on('open', () => {
         wire(connection)
@@ -132,10 +195,17 @@ export async function openSession({ host, code, name, onPeers, onMessage, onStat
     await new Promise((resolve, reject) => {
       connection.on('open', resolve)
       peer.on('error', reject)
-      setTimeout(() => reject(new Error('Aucune réponse : code inconnu ou hôte hors ligne')), 12000)
+      // Court : la reprise d'hôte enchaîne les tentatives, mieux vaut échouer vite.
+      setTimeout(() => reject(new Error('Aucune réponse : code inconnu ou hôte hors ligne')), 4500)
     })
     wire(connection)
     connection.send({ t: 'hello', name: self.name, color: self.color })
+    lastSeen = Date.now()
+    // L'invité donne aussi de la voix, pour que l'hôte sache qu'il est encore là.
+    heartbeat = setInterval(() => send({ t: 'ping', at: Date.now() }), PING_EVERY)
+    watchdog = setInterval(() => {
+      if (Date.now() - lastSeen > HOST_TIMEOUT) hostGone()
+    }, 1500)
     onStatus?.('ready')
   }
 
@@ -152,6 +222,8 @@ export async function openSession({ host, code, name, onPeers, onMessage, onStat
     },
     close() {
       closed = true
+      clearInterval(heartbeat)
+      clearInterval(watchdog)
       send({ t: 'bye' })
       for (const connection of links.values()) connection.close()
       peer.destroy()

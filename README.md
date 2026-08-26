@@ -291,6 +291,20 @@ son document qu'après avoir reçu celui de l'hôte, sinon un arrivant au tablea
 le travail de tout le monde. **Qui a le code peut rejoindre** : ne le diffusez qu'aux personnes
 concernées.
 
+### Si l'hôte disparaît
+
+Un **battement de cœur** circule dans les deux sens (toutes les 2 s, silence toléré 7 s) :
+
+- l'hôte tombe et il reste **au moins deux personnes** → le survivant au plus petit
+  identifiant **reprend le même code**, les autres s'y rebranchent tout seuls (~6 s), et le
+  tableau continue de se synchroniser ; un message le signale dans le tchat ;
+- l'hôte tombe et il ne reste **qu'une personne** → la session se ferme proprement, avec un
+  avis en haut de l'écran. Le tableau, lui, reste intact en local ;
+- un invité disparaît sans prévenir → il sort de la liste des participants au bout de ~9 s.
+
+Reprendre le **même code** est la clé : c'est ce qui permet aux autres de retrouver la session
+sans rien se redire, et à quelqu'un d'arriver plus tard avec le code initial.
+
 ## Vue d'ensemble
 
 Une **minimap** en bas à gauche montre les blocs en miniature et le cadre de la vue courante ;

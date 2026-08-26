@@ -154,6 +154,7 @@ export default function Whiteboard() {
   const [chat, setChat] = useState([])
   const [unread, setUnread] = useState(0)
   const [peerTools, setPeerTools] = useState(new Map())
+  const [notice, setNotice] = useState(null)
   const [liveStatus, setLiveStatus] = useState('idle')
   const [liveError, setLiveError] = useState(null)
   const [peerName, setPeerName] = useState(
@@ -528,33 +529,108 @@ export default function Whiteboard() {
     [applyRemote],
   )
 
+  const systemMessage = useCallback((text) => {
+    setChat((current) => [
+      ...current.slice(-199),
+      { id: `sys-${Date.now()}`, name: 'Session', color: '#8a8a93', text, system: true },
+    ])
+  }, [])
+
+  const announceNotice = useCallback((text, sticky = false) => {
+    setNotice(text)
+    if (sticky) return
+    setTimeout(() => setNotice((current) => (current === text ? null : current)), 6000)
+  }, [])
+
   const connect = useCallback(
-    async ({ host, code }) => {
+    async ({ host, code, silent }) => {
       setLiveError(null)
       setLiveStatus('connecting')
       try {
         const handle = await openSession({
           host,
-          code: host ? makeCode() : code,
+          // Une reprise d'hôte réutilise le code existant : sans ça, personne ne
+          // retrouverait la session.
+          code: code ?? makeCode(),
           name: peerName,
           onPeers: setPeers,
           onMessage: receive,
+          onHostLost: (info) => hostLostRef.current?.(info, code),
         })
         gotRemoteDoc.current = false
         sessionRef.current = handle
         setSession(handle)
         setLiveStatus('ready')
+        return true
       } catch (error) {
         setLiveStatus('idle')
-        setLiveError(
-          error?.type === 'unavailable-id'
-            ? 'Ce code est déjà pris, réessayez.'
-            : (error?.message ?? 'Connexion impossible'),
-        )
+        if (!silent) {
+          setLiveError(
+            error?.type === 'unavailable-id'
+              ? 'Ce code est déjà pris, réessayez.'
+              : (error?.message ?? 'Connexion impossible'),
+          )
+        }
+        return false
       }
     },
     [receive, peerName],
   )
+
+  /**
+   * L'hôte ne répond plus. À deux, la session n'a plus lieu d'être ; à plus, le survivant
+   * au plus petit identifiant reprend le code et les autres s'y rebranchent.
+   */
+  const hostLost = useCallback(
+    async ({ survivors, isWinner }, code) => {
+      sessionRef.current = null
+      setSession(null)
+      setPeers([])
+      cursorTargets.current.clear()
+      remoteInk.current.clear()
+      peerToolsRef.current.clear()
+      setPeerTools(new Map())
+
+      if (survivors.length < 2) {
+        setChat([])
+        setLiveStatus('idle')
+        announceNotice('L’hôte s’est déconnecté : session fermée, votre tableau reste ici.')
+        return
+      }
+
+      announceNotice(
+        isWinner
+          ? 'L’hôte s’est déconnecté : vous reprenez la session.'
+          : 'L’hôte s’est déconnecté : reconnexion à la session…',
+        !isWinner,
+      )
+      systemMessage(
+        isWinner ? 'Vous reprenez la session.' : 'Changement d’hôte, reconnexion…',
+      )
+
+      // L'annuaire met quelques secondes à libérer l'identifiant de l'ancien hôte :
+      // les deux rôles insistent, chacun à son rythme.
+      const attempts = isWinner ? 12 : 14
+      const pause = isWinner ? 1200 : 1600
+      if (!isWinner) await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        if (await connect({ host: isWinner, code, silent: true })) {
+          setNotice(null)
+          systemMessage(isWinner ? 'Session reprise.' : 'Reconnecté à la session.')
+          return
+        }
+        await new Promise((resolve) => setTimeout(resolve, pause))
+      }
+
+      setLiveStatus('idle')
+      announceNotice('Impossible de rétablir la session.')
+    },
+    [announceNotice, connect, systemMessage],
+  )
+
+  const hostLostRef = useRef(null)
+  hostLostRef.current = hostLost
 
   const leaveSession = useCallback(() => {
     sessionRef.current?.close()
@@ -2066,6 +2142,8 @@ export default function Whiteboard() {
       )}
 
       <p className={`status status--${status}`}>{statusLabel}</p>
+
+      {notice && <p className="notice">{notice}</p>}
 
       {linking && (
         <p className="prompt">

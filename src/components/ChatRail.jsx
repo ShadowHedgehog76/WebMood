@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import './ChatRail.css'
 
-const SLOT = 46 // hauteur d'une ligne de participant
+const SLOT = 42 // hauteur d'une ligne de participant
+const GAP = 4
+const PADDING = 20 // 10 px en haut et en bas
 const OPEN_HEIGHT = 520
 
 function initials(name) {
@@ -23,7 +25,10 @@ export default function ChatRail({ self, peers, messages, unread, onSend, onOpen
   const listRef = useRef(null)
 
   const people = [{ ...self, me: true }, ...peers]
-  const height = open ? Math.min(OPEN_HEIGHT, window.innerHeight - 48) : people.length * SLOT + 22
+  // Replié, la barre fait exactement la hauteur des pastilles : elles restent centrées.
+  const height = open
+    ? Math.min(OPEN_HEIGHT, window.innerHeight - 48)
+    : people.length * SLOT + GAP * (people.length - 1) + PADDING
 
   useEffect(() => {
     if (open) {
@@ -78,11 +83,15 @@ export default function ChatRail({ self, peers, messages, unread, onSend, onOpen
             messages.map((message) => (
               <p
                 key={message.id}
-                className={`chat-rail__msg ${message.name === self.name ? 'is-me' : ''}`}
+                className={`chat-rail__msg ${message.system ? 'is-system' : ''} ${
+                  !message.system && message.name === self.name ? 'is-me' : ''
+                }`}
               >
-                <span className="chat-rail__who" style={{ color: message.color }}>
-                  {message.name}
-                </span>
+                {!message.system && (
+                  <span className="chat-rail__who" style={{ color: message.color }}>
+                    {message.name}
+                  </span>
+                )}
                 {message.text}
               </p>
             ))
