@@ -1,7 +1,7 @@
 .minimap {
   position: absolute;
-  right: 24px;
-  bottom: 76px;
+  right: 96px;
+  bottom: 24px;
   z-index: 12;
   overflow: hidden;
   border-radius: 12px;

@@ -6,7 +6,7 @@ import BoardRail from './BoardRail.jsx'
 import Minimap from './Minimap.jsx'
 import RemoteCursors from './RemoteCursors.jsx'
 import ShareDialog from './ShareDialog.jsx'
-import ChatPanel from './ChatPanel.jsx'
+import ChatRail from './ChatRail.jsx'
 import { decodeBoard } from '../lib/share.js'
 import { makeCode, openSession } from '../lib/session.js'
 import { snapPosition } from '../lib/snap.js'
@@ -125,7 +125,7 @@ export default function Whiteboard() {
   const remoteInk = useRef(new Map()) // traits des autres, en cours de tracé
   const outbox = useRef({ ids: new Set(), frame: 0 })
   const gotRemoteDoc = useRef(false)
-  const chatOpenRef = useRef(false)
+  const peerToolsRef = useRef(new Map())
 
   const [doc, setDoc] = useState(EMPTY_DOC)
   const [tool, setTool] = useState('pen')
@@ -152,8 +152,8 @@ export default function Whiteboard() {
   const [session, setSession] = useState(null)
   const [peers, setPeers] = useState([])
   const [chat, setChat] = useState([])
-  const [chatOpen, setChatOpen] = useState(false)
   const [unread, setUnread] = useState(0)
+  const [peerTools, setPeerTools] = useState(new Map())
   const [liveStatus, setLiveStatus] = useState('idle')
   const [liveError, setLiveError] = useState(null)
   const [peerName, setPeerName] = useState(
@@ -501,15 +501,22 @@ export default function Whiteboard() {
 
         case 'cursor':
           cursorTargets.current.set(from, { x: message.x, y: message.y })
+          // L'outil ne change presque jamais : on ne re-rend que dans ce cas.
+          if (message.tool && peerToolsRef.current.get(from) !== message.tool) {
+            peerToolsRef.current.set(from, message.tool)
+            setPeerTools(new Map(peerToolsRef.current))
+          }
           break
 
         case 'chat':
           setChat((current) => [...current.slice(-199), { ...message, id: `${from}-${message.at}` }])
-          setUnread((count) => (chatOpenRef.current ? 0 : count + 1))
+          setUnread((count) => count + 1)
           break
 
         case 'left':
           cursorTargets.current.delete(from)
+          peerToolsRef.current.delete(from)
+          setPeerTools(new Map(peerToolsRef.current))
           remoteInk.current.delete(from)
           painters.current.paintStrokes()
           break
@@ -536,7 +543,6 @@ export default function Whiteboard() {
         gotRemoteDoc.current = false
         sessionRef.current = handle
         setSession(handle)
-        setChatOpen(true)
         setLiveStatus('ready')
       } catch (error) {
         setLiveStatus('idle')
@@ -557,8 +563,10 @@ export default function Whiteboard() {
     setPeers([])
     cursorTargets.current.clear()
     remoteInk.current.clear()
+    peerToolsRef.current.clear()
+    setPeerTools(new Map())
     setChat([])
-    setChatOpen(false)
+    setUnread(0)
     setLiveStatus('idle')
   }, [])
 
@@ -567,11 +575,6 @@ export default function Whiteboard() {
   useEffect(() => {
     localStorage.setItem('moodboard:name', peerName)
   }, [peerName])
-
-  useEffect(() => {
-    chatOpenRef.current = chatOpen
-    if (chatOpen) setUnread(0)
-  }, [chatOpen])
 
   // Toute modification locale part aux autres, sauf celles qui viennent d'eux.
   // Un invité attend d'avoir reçu le tableau de l'hôte : sans ça, un arrivant au
@@ -1433,6 +1436,7 @@ export default function Whiteboard() {
         t: 'cursor',
         x: move.cursor.x,
         y: move.cursor.y,
+        tool: toolRef.current,
       })
     }
     if (move.paint) painters.current.paintStrokes()
@@ -1866,7 +1870,7 @@ export default function Whiteboard() {
               leaf={nodeInfo.get(item.id)?.leaf}
             />
           ))}
-          <RemoteCursors peers={peers} targets={cursorTargets} />
+          <RemoteCursors peers={peers} targets={cursorTargets} tools={peerTools} />
 
           {guides.map((guide, index) => (
             <span
@@ -1934,15 +1938,12 @@ export default function Whiteboard() {
       />
 
       {session && (
-        <ChatPanel
-          open={chatOpen}
-          setOpen={(value) => {
-            setChatOpen(value)
-            if (value) setUnread(0)
-          }}
+        <ChatRail
+          self={{ name: peerName, color: session.self.color }}
+          peers={peers}
           messages={chat}
           unread={unread}
-          selfName={peerName}
+          onOpen={() => setUnread(0)}
           onSend={(text) => {
             const message = {
               t: 'chat',
@@ -1952,10 +1953,7 @@ export default function Whiteboard() {
               at: Date.now(),
             }
             session.send(message)
-            setChat((current) => [
-              ...current.slice(-199),
-              { ...message, id: `moi-${message.at}` },
-            ])
+            setChat((current) => [...current.slice(-199), { ...message, id: `moi-${message.at}` }])
           }}
         />
       )}

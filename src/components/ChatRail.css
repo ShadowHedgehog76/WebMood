@@ -1,0 +1,221 @@
+.chat-rail {
+  position: absolute;
+  /* collée à droite, centrée sur la hauteur — symétrique du rail des tableaux */
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  z-index: 18;
+  width: 62px;
+  max-height: calc(100% - 48px);
+  padding: 10px 0;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 12px 32px rgba(15, 15, 20, 0.14);
+  transition:
+    width 0.22s cubic-bezier(0.22, 0.61, 0.36, 1),
+    height 0.22s cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 0.22s ease;
+}
+
+.chat-rail.is-open {
+  width: 292px;
+  box-shadow: 0 18px 44px rgba(15, 15, 20, 0.2);
+}
+
+.chat-rail__inner {
+  display: flex;
+  flex-direction: column;
+  width: 292px;
+  height: 100%;
+  padding: 0 10px;
+}
+
+/* Replié, seuls les participants restent lisibles. */
+.chat-rail__title,
+.chat-rail__name,
+.chat-rail__list,
+.chat-rail__form {
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.chat-rail.is-open .chat-rail__title,
+.chat-rail.is-open .chat-rail__name,
+.chat-rail.is-open .chat-rail__list,
+.chat-rail.is-open .chat-rail__form {
+  opacity: 1;
+}
+
+.chat-rail:not(.is-open) .chat-rail__list,
+.chat-rail:not(.is-open) .chat-rail__form {
+  pointer-events: none;
+}
+
+.chat-rail__title {
+  margin: 0 0 4px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9a9aa3;
+  white-space: nowrap;
+}
+
+.chat-rail__people {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 34vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.chat-rail__person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-rail__slot {
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  height: 42px;
+}
+
+.chat-rail__avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgba(15, 15, 20, 0.18);
+}
+
+.chat-rail__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-rail__name em {
+  font-style: normal;
+  color: #9a9aa3;
+  font-size: 12px;
+}
+
+.chat-rail__unread {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #e5484d;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.chat-rail__sep {
+  flex: 0 0 auto;
+  height: 1px;
+  margin: 8px 4px;
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.chat-rail__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 2px 6px;
+}
+
+.chat-rail__empty {
+  margin: auto;
+  font-size: 12.5px;
+  color: #9a9aa3;
+  white-space: nowrap;
+}
+
+.chat-rail__msg {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.045);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.chat-rail__msg.is-me {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.chat-rail__who {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.chat-rail__form {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+.chat-rail__form input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 9px;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.chat-rail__form input:focus {
+  border-color: #3b82f6;
+}
+
+.chat-rail__form button {
+  width: 36px;
+  border: 0;
+  border-radius: 9px;
+  background: #1c1c1e;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.chat-rail__form button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .chat-rail {
+    right: 12px;
+    width: 52px;
+  }
+}

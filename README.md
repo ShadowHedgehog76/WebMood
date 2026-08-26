@@ -277,10 +277,14 @@ Tout est envoyé **en continu, jamais par à-coups** :
 
 Les curseurs reçus alimentent une cible, et une boucle d'animation les en rapproche image par
 image ([RemoteCursors.jsx](src/components/RemoteCursors.jsx)) : le mouvement reste fluide même
-si le réseau livre les positions irrégulièrement.
+si le réseau livre les positions irrégulièrement. Chaque curseur affiche le nom de la personne
+**et l'outil qu'elle tient** (crayon, gomme, forme, main…), mis à jour au moment où elle en
+change.
 
-Un **tchat** apparaît à droite pendant la session ([ChatPanel.jsx](src/components/ChatPanel.jsx)),
-avec un compteur de messages non lus quand il est replié.
+Pendant la session, un **rail apparaît à droite**, symétrique de celui des tableaux
+([ChatRail.jsx](src/components/ChatRail.jsx)) : replié il montre les **participants** (pastille
+colorée avec leurs initiales) et une pastille rouge en cas de messages non lus ; au survol il
+s'ouvre sur les noms et le **tchat** de la session.
 
 La topologie est en étoile : l'hôte relaie les messages entre les invités. Un invité n'émet
 son document qu'après avoir reçu celui de l'hôte, sinon un arrivant au tableau vide effacerait
@@ -329,7 +333,7 @@ src/
     BoardRail.jsx           barre latérale : tableaux, vignettes, export PNG/JSON, import
     Minimap.jsx             vue d'ensemble et navigation
     ShareDialog.jsx         code de partage et session pair-à-pair
-    ChatPanel.jsx           tchat de session
+    ChatRail.jsx            rail droit : participants repliés, tchat déployé
     RemoteCursors.jsx       curseurs des participants, interpolés
     Icons.jsx               jeu d'icônes SVG inline (aucune dépendance)
     BoardItem.jsx           élément image / code / visuel / groupe : déplacer, redimensionner

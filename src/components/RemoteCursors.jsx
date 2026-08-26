@@ -1,5 +1,25 @@
 import { useEffect, useRef } from 'react'
+import {
+  IconCursor,
+  IconEraser,
+  IconGroup,
+  IconHand,
+  IconLink,
+  IconPen,
+  IconSquare,
+} from './Icons.jsx'
 import './RemoteCursors.css'
+
+// L'outil de chaque personne s'affiche à côté de son nom.
+const TOOL_ICONS = {
+  select: IconCursor,
+  pen: IconPen,
+  eraser: IconEraser,
+  shape: IconSquare,
+  link: IconLink,
+  group: IconGroup,
+  hand: IconHand,
+}
 
 const EASE = 0.32
 
@@ -8,7 +28,7 @@ const EASE = 0.32
  * boucle d'animation rapproche le curseur affiché de cette cible : le déplacement reste
  * continu même si les messages arrivent par à-coups.
  */
-export default function RemoteCursors({ peers, targets }) {
+export default function RemoteCursors({ peers, targets, tools }) {
   const nodes = useRef(new Map())
   const shown = useRef(new Map())
 
@@ -34,29 +54,35 @@ export default function RemoteCursors({ peers, targets }) {
     return () => cancelAnimationFrame(frame)
   }, [targets])
 
-  return peers.map((peer) => (
-    <span
-      key={peer.id}
-      ref={(node) => {
-        if (node) nodes.current.set(peer.id, node)
-        else {
-          nodes.current.delete(peer.id)
-          shown.current.delete(peer.id)
-        }
-      }}
-      className="peer-cursor"
-      style={{ '--peer': peer.color }}
-    >
-      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-        <path
-          d="M2 1.5 2 14l3.3-3.2 2.1 4.7 2.2-1-2.1-4.6 4.6-.2Z"
-          fill="var(--peer)"
-          stroke="#fff"
-          strokeWidth="1.2"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <span className="peer-cursor__name">{peer.name}</span>
-    </span>
-  ))
+  return peers.map((peer) => {
+    const Glyph = TOOL_ICONS[tools.get(peer.id)] ?? null
+    return (
+      <span
+        key={peer.id}
+        ref={(node) => {
+          if (node) nodes.current.set(peer.id, node)
+          else {
+            nodes.current.delete(peer.id)
+            shown.current.delete(peer.id)
+          }
+        }}
+        className="peer-cursor"
+        style={{ '--peer': peer.color }}
+      >
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+          <path
+            d="M2 1.5 2 14l3.3-3.2 2.1 4.7 2.2-1-2.1-4.6 4.6-.2Z"
+            fill="var(--peer)"
+            stroke="#fff"
+            strokeWidth="1.2"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span className="peer-cursor__name">
+          {Glyph && <Glyph size={12} />}
+          {peer.name}
+        </span>
+      </span>
+    )
+  })
 }

@@ -11,6 +11,9 @@
 }
 
 .peer-cursor__name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   margin-top: 12px;
   padding: 2px 7px;
   border-radius: 999px;
