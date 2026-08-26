@@ -1,7 +1,9 @@
 .peer-cursor {
   position: absolute;
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: start;
+  justify-items: start;
   gap: calc(2px * var(--inv, 1));
   pointer-events: none;
   z-index: 5;
@@ -23,4 +25,70 @@
   font-weight: 500;
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(15, 15, 20, 0.2);
+}
+
+/* ---------- écriture en cours ---------- */
+
+.peer-cursor__dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  height: 12px;
+}
+
+.peer-cursor__dots::before,
+.peer-cursor__dots::after,
+.peer-cursor__dots {
+  --dot: 4px;
+}
+
+.peer-cursor__dots::before,
+.peer-cursor__dots::after {
+  content: '';
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background: currentColor;
+  animation: peer-dots 1.1s infinite ease-in-out;
+}
+
+.peer-cursor__dots::after {
+  animation-delay: 0.35s;
+}
+
+@keyframes peer-dots {
+  0%,
+  70%,
+  100% {
+    opacity: 0.35;
+  }
+  35% {
+    opacity: 1;
+  }
+}
+
+/* ---------- bulle de message ---------- */
+
+.peer-cursor__bubble {
+  grid-column: 2;
+  max-width: 240px;
+  margin-top: 4px;
+  padding: 7px 11px;
+  border-radius: 12px 12px 12px 3px;
+  background: #fff;
+  color: #1c1c1e;
+  font-size: 12.5px;
+  line-height: 1.4;
+  box-shadow:
+    0 0 0 1.5px var(--peer),
+    0 6px 18px rgba(15, 15, 20, 0.18);
+  animation: peer-bubble 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+  overflow-wrap: anywhere;
+}
+
+@keyframes peer-bubble {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.94);
+  }
 }

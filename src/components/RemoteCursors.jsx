@@ -28,7 +28,7 @@ const EASE = 0.32
  * boucle d'animation rapproche le curseur affiché de cette cible : le déplacement reste
  * continu même si les messages arrivent par à-coups.
  */
-export default function RemoteCursors({ peers, targets, tools }) {
+export default function RemoteCursors({ peers, targets, tools, typing, bubbles }) {
   const nodes = useRef(new Map())
   const shown = useRef(new Map())
 
@@ -56,6 +56,8 @@ export default function RemoteCursors({ peers, targets, tools }) {
 
   return peers.map((peer) => {
     const Glyph = TOOL_ICONS[tools.get(peer.id)] ?? null
+    const writes = typing.has(peer.id)
+    const bubble = bubbles.get(peer.id)
     return (
       <span
         key={peer.id}
@@ -80,8 +82,11 @@ export default function RemoteCursors({ peers, targets, tools }) {
         </svg>
         <span className="peer-cursor__name">
           {Glyph && <Glyph size={12} />}
-          {peer.name}
+          {/* Trois points à la place du nom : la personne est en train d'écrire. */}
+          {writes ? <span className="peer-cursor__dots" /> : peer.name}
         </span>
+
+        {bubble && <span className="peer-cursor__bubble">{bubble.text}</span>}
       </span>
     )
   })

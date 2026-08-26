@@ -286,6 +286,17 @@ Pendant la session, un **rail apparaît à droite**, symétrique de celui des ta
 colorée avec leurs initiales) et une pastille rouge en cas de messages non lus ; au survol il
 s'ouvre sur les noms et le **tchat** de la session.
 
+### Message rapide
+
+Une touche **Entrée** ouvre une saisie à l'endroit du curseur
+([QuickChat.jsx](src/components/QuickChat.jsx)), comme un menu contextuel — pas besoin d'aller
+chercher le rail. `Entrée` envoie, `Échap` annule.
+
+- Pendant qu'une personne écrit (saisie rapide **ou** champ du rail), les autres voient **trois
+  points animés à la place de son nom**, sur son curseur.
+- Le message envoyé apparaît **dans le tchat** et dans une **bulle sous le curseur** de son
+  auteur, qui s'efface au bout de six secondes.
+
 La topologie est en étoile : l'hôte relaie les messages entre les invités. Un invité n'émet
 son document qu'après avoir reçu celui de l'hôte, sinon un arrivant au tableau vide effacerait
 le travail de tout le monde. **Qui a le code peut rejoindre** : ne le diffusez qu'aux personnes
@@ -348,6 +359,7 @@ src/
     Minimap.jsx             vue d'ensemble et navigation
     ShareDialog.jsx         code de partage et session pair-à-pair
     ChatRail.jsx            rail droit : participants repliés, tchat déployé
+    QuickChat.jsx           saisie rapide ouverte à la position du curseur
     RemoteCursors.jsx       curseurs des participants, interpolés
     Icons.jsx               jeu d'icônes SVG inline (aucune dépendance)
     BoardItem.jsx           élément image / code / visuel / groupe : déplacer, redimensionner

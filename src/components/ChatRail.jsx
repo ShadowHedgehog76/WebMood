@@ -19,7 +19,7 @@ function initials(name) {
  * Rail de droite, symétrique de celui des tableaux : replié il montre les participants,
  * ouvert au survol il déroule le tchat de la session.
  */
-export default function ChatRail({ self, peers, messages, unread, onSend, onOpen }) {
+export default function ChatRail({ self, peers, messages, unread, onSend, onOpen, onTyping }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const listRef = useRef(null)
@@ -43,6 +43,7 @@ export default function ChatRail({ self, peers, messages, unread, onSend, onOpen
     if (!text) return
     onSend(text)
     setDraft('')
+    onTyping?.(false)
   }
 
   return (
@@ -101,7 +102,11 @@ export default function ChatRail({ self, peers, messages, unread, onSend, onOpen
         <form className="chat-rail__form" onSubmit={submit}>
           <input
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => {
+              setDraft(event.target.value)
+              onTyping?.(event.target.value.length > 0)
+            }}
+            onBlur={() => onTyping?.(false)}
             onKeyDown={(event) => event.stopPropagation()}
             placeholder="Message…"
             maxLength={500}

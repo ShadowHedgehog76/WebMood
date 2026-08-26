@@ -7,6 +7,7 @@ import Minimap from './Minimap.jsx'
 import RemoteCursors from './RemoteCursors.jsx'
 import ShareDialog from './ShareDialog.jsx'
 import ChatRail from './ChatRail.jsx'
+import QuickChat from './QuickChat.jsx'
 import { decodeBoard } from '../lib/share.js'
 import { makeCode, openSession } from '../lib/session.js'
 import { snapPosition } from '../lib/snap.js'
@@ -126,6 +127,9 @@ export default function Whiteboard() {
   const outbox = useRef({ ids: new Set(), frame: 0 })
   const gotRemoteDoc = useRef(false)
   const peerToolsRef = useRef(new Map())
+  const pointerScreen = useRef({ x: 0, y: 0 })
+  const typingSent = useRef(false)
+  const bubbleTimers = useRef(new Map())
 
   const [doc, setDoc] = useState(EMPTY_DOC)
   const [tool, setTool] = useState('pen')
@@ -155,6 +159,9 @@ export default function Whiteboard() {
   const [unread, setUnread] = useState(0)
   const [peerTools, setPeerTools] = useState(new Map())
   const [notice, setNotice] = useState(null)
+  const [typingPeers, setTypingPeers] = useState(new Set())
+  const [bubbles, setBubbles] = useState(new Map())
+  const [quick, setQuick] = useState(null) // saisie rapide ouverte à la position du curseur
   const [liveStatus, setLiveStatus] = useState('idle')
   const [liveError, setLiveError] = useState(null)
   const [peerName, setPeerName] = useState(
@@ -512,12 +519,27 @@ export default function Whiteboard() {
         case 'chat':
           setChat((current) => [...current.slice(-199), { ...message, id: `${from}-${message.at}` }])
           setUnread((count) => count + 1)
+          showBubble(from, message.text)
+          break
+
+        case 'typing':
+          setTypingPeers((current) => {
+            const next = new Set(current)
+            if (message.on) next.add(from)
+            else next.delete(from)
+            return next
+          })
           break
 
         case 'left':
           cursorTargets.current.delete(from)
           peerToolsRef.current.delete(from)
           setPeerTools(new Map(peerToolsRef.current))
+          setTypingPeers((current) => {
+            const next = new Set(current)
+            next.delete(from)
+            return next
+          })
           remoteInk.current.delete(from)
           painters.current.paintStrokes()
           break
@@ -527,6 +549,47 @@ export default function Whiteboard() {
       }
     },
     [applyRemote],
+  )
+
+  /** Bulle éphémère sous le curseur de la personne qui vient de parler. */
+  const showBubble = useCallback((id, text) => {
+    setBubbles((current) => new Map(current).set(id, { text, at: Date.now() }))
+    clearTimeout(bubbleTimers.current.get(id))
+    bubbleTimers.current.set(
+      id,
+      setTimeout(() => {
+        setBubbles((current) => {
+          const next = new Map(current)
+          next.delete(id)
+          return next
+        })
+      }, 6000),
+    )
+  }, [])
+
+  /** Prévient les autres qu'on est en train d'écrire (points à la place du nom). */
+  const setTyping = useCallback((on) => {
+    if (!sessionRef.current || typingSent.current === on) return
+    typingSent.current = on
+    sessionRef.current.send({ t: 'typing', on })
+  }, [])
+
+  const sendChat = useCallback(
+    (text) => {
+      const session = sessionRef.current
+      if (!session || !text.trim()) return
+      const message = {
+        t: 'chat',
+        name: peerName,
+        color: session.self.color,
+        text: text.trim(),
+        at: Date.now(),
+      }
+      session.send(message)
+      setChat((current) => [...current.slice(-199), { ...message, id: `moi-${message.at}` }])
+      setTyping(false)
+    },
+    [peerName, setTyping],
   )
 
   const systemMessage = useCallback((text) => {
@@ -641,6 +704,9 @@ export default function Whiteboard() {
     remoteInk.current.clear()
     peerToolsRef.current.clear()
     setPeerTools(new Map())
+    setTypingPeers(new Set())
+    setBubbles(new Map())
+    setQuick(null)
     setChat([])
     setUnread(0)
     setLiveStatus('idle')
@@ -1390,6 +1456,7 @@ export default function Whiteboard() {
   }
 
   const onPointerMove = (event) => {
+    pointerScreen.current = { x: event.clientX, y: event.clientY }
     const move = nextMove.current ?? {}
 
     if (pendingRef.current && !pan.current) move.link = toWorld(event.clientX, event.clientY)
@@ -1636,6 +1703,11 @@ export default function Whiteboard() {
         event.preventDefault()
         deleteSelection()
       }
+      if (event.key === 'Enter' && sessionRef.current && !quick) {
+        event.preventDefault()
+        setQuick({ ...pointerScreen.current, text: '' })
+        return
+      }
       if (event.key === 'Escape') {
         clearSelection()
         setEditingId(null)
@@ -1657,6 +1729,7 @@ export default function Whiteboard() {
       window.removeEventListener('keyup', onKeyUp)
     }
   }, [
+    quick,
     undo,
     redo,
     deleteSelection,
@@ -1946,7 +2019,13 @@ export default function Whiteboard() {
               leaf={nodeInfo.get(item.id)?.leaf}
             />
           ))}
-          <RemoteCursors peers={peers} targets={cursorTargets} tools={peerTools} />
+          <RemoteCursors
+            peers={peers}
+            targets={cursorTargets}
+            tools={peerTools}
+            typing={typingPeers}
+            bubbles={bubbles}
+          />
 
           {guides.map((guide, index) => (
             <span
@@ -2013,6 +2092,25 @@ export default function Whiteboard() {
         onLeave={leaveSession}
       />
 
+      {session && quick && (
+        <QuickChat
+          at={quick}
+          value={quick.text}
+          onChange={(text) => {
+            setQuick((current) => (current ? { ...current, text } : current))
+            setTyping(text.length > 0)
+          }}
+          onSend={() => {
+            sendChat(quick.text)
+            setQuick(null)
+          }}
+          onClose={() => {
+            setQuick(null)
+            setTyping(false)
+          }}
+        />
+      )}
+
       {session && (
         <ChatRail
           self={{ name: peerName, color: session.self.color }}
@@ -2020,17 +2118,8 @@ export default function Whiteboard() {
           messages={chat}
           unread={unread}
           onOpen={() => setUnread(0)}
-          onSend={(text) => {
-            const message = {
-              t: 'chat',
-              name: peerName,
-              color: session.self.color,
-              text,
-              at: Date.now(),
-            }
-            session.send(message)
-            setChat((current) => [...current.slice(-199), { ...message, id: `moi-${message.at}` }])
-          }}
+          onSend={sendChat}
+          onTyping={setTyping}
         />
       )}
 
