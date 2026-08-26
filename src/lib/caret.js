@@ -62,8 +62,11 @@ export function caretPoint(field) {
 
   // Le bloc peut être zoomé : on déduit l'échelle du champ lui-même.
   const scale = field.offsetWidth ? rect.width / field.offsetWidth : 1
+  // On renvoie le bas de la ligne : c'est là que se pose la pointe du stylo.
+  const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.25
+
   return {
     x: rect.left + (offsetX - field.scrollLeft) * scale,
-    y: rect.top + (offsetY - field.scrollTop) * scale,
+    y: rect.top + (offsetY - field.scrollTop + lineHeight) * scale,
   }
 }

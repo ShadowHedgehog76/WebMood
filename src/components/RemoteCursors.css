@@ -107,8 +107,13 @@
 
 /* ---------- saisie en cours ---------- */
 
-/* La pointe du stylo est en bas à gauche : on remonte l'icône pour qu'elle
-   se pose exactement sur la lettre en cours. */
+/* La pointe du stylo est en bas à gauche de l'icône : on la remonte juste ce qu'il
+   faut pour qu'elle se pose sur la ligne en cours d'écriture. */
 .peer-cursor.is-writing > svg {
-  transform: translate(-3px, -17px);
+  transform: translate(-3px, -16px);
+}
+
+/* L'étiquette suit la ligne plutôt que de flotter au-dessus. */
+.peer-cursor.is-writing .peer-cursor__name {
+  margin-top: 2px;
 }
