@@ -7,7 +7,6 @@ import {
   IconLink,
   IconPen,
   IconSquare,
-  IconText,
 } from './Icons.jsx'
 import './RemoteCursors.css'
 
@@ -20,7 +19,7 @@ const TOOL_ICONS = {
   link: IconLink,
   group: IconGroup,
   hand: IconHand,
-  text: IconText,
+  text: IconPen,
 }
 
 const EASE = 0.32
@@ -59,6 +58,7 @@ export default function RemoteCursors({ peers, targets, tools, typing, bubbles, 
   return peers.map((peer) => {
     const Glyph = TOOL_ICONS[tools.get(peer.id)] ?? null
     const writes = typing.has(peer.id)
+    const editing = tools.get(peer.id) === 'text'
     const bubble = bubbles.get(peer.id)
     return (
       <span
@@ -70,18 +70,33 @@ export default function RemoteCursors({ peers, targets, tools, typing, bubbles, 
             shown.current.delete(peer.id)
           }
         }}
-        className={`peer-cursor ${shaking.has(peer.id) ? 'is-shaking' : ''}`}
+        className={`peer-cursor ${shaking.has(peer.id) ? 'is-shaking' : ''} ${
+          editing ? 'is-writing' : ''
+        }`}
         style={{ '--peer': peer.color }}
       >
-        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-          <path
-            d="M2 1.5 2 14l3.3-3.2 2.1 4.7 2.2-1-2.1-4.6 4.6-.2Z"
-            fill="var(--peer)"
-            stroke="#fff"
-            strokeWidth="1.2"
-            strokeLinejoin="round"
-          />
-        </svg>
+        {editing ? (
+          // En pleine saisie : un stylo, pointe posée sur la lettre en cours.
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M3.6 20.4 4.7 15.6 15.6 4.7a2.3 2.3 0 0 1 3.7 3.7L8.4 19.3Z"
+              fill="var(--peer)"
+              stroke="#fff"
+              strokeWidth="1.7"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+            <path
+              d="M2 1.5 2 14l3.3-3.2 2.1 4.7 2.2-1-2.1-4.6 4.6-.2Z"
+              fill="var(--peer)"
+              stroke="#fff"
+              strokeWidth="1.2"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
         <span className="peer-cursor__name">
           {Glyph && <Glyph size={12} />}
           {/* Trois points à la place du nom : la personne est en train d'écrire. */}

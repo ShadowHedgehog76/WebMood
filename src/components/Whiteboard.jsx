@@ -50,6 +50,7 @@ const MIN_SCALE = 0.2
 const MAX_SCALE = 5
 const GRID_STEP = 40
 const EMPTY_DOC = { strokes: [], items: [], links: [] }
+const GEOMETRY = new Set(['x', 'y', 'w', 'h'])
 
 
 /** Tuile d'un point de grille, régénérée seulement quand le pas ou le rayon change. */
@@ -514,6 +515,19 @@ export default function Whiteboard() {
           }
           painters.current.paintStrokes()
           break
+
+        case 'patch': {
+          fromRemote.current = true
+          const next = {
+            ...docRef.current,
+            items: docRef.current.items.map((item) =>
+              item.id === message.id ? { ...item, ...message.patch } : item,
+            ),
+          }
+          docRef.current = next
+          setDoc(next)
+          break
+        }
 
         case 'items': {
           const patch = new Map(message.list.map((entry) => [entry.id, entry]))
@@ -1032,7 +1046,17 @@ export default function Whiteboard() {
         if (next.type === 'group' && next.autoSort && (patch.w !== undefined || patch.h !== undefined)) {
           items = layoutGroup(items, next)
         }
-        if (sessionRef.current) touched.current = [id, ...(moving ?? [])]
+        if (sessionRef.current) {
+          touched.current = [id, ...(moving ?? [])]
+          // Le contenu (texte, code, couleur…) ne peut pas attendre la synchro complète :
+          // il part tout de suite, champ par champ.
+          const content = Object.fromEntries(
+            Object.entries(patch).filter(([key]) => !GEOMETRY.has(key)),
+          )
+          if (Object.keys(content).length) {
+            sessionRef.current.send({ t: 'patch', id, patch: content })
+          }
+        }
         return { ...d, items }
       }, recordHistory)
 

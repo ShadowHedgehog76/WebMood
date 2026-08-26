@@ -104,3 +104,11 @@
 .peer-cursor.is-shaking .peer-cursor__name {
   box-shadow: 0 2px 10px rgba(15, 15, 20, 0.28);
 }
+
+/* ---------- saisie en cours ---------- */
+
+/* La pointe du stylo est en bas à gauche : on remonte l'icône pour qu'elle
+   se pose exactement sur la lettre en cours. */
+.peer-cursor.is-writing > svg {
+  transform: translate(-3px, -17px);
+}

@@ -273,6 +273,7 @@ Tout est envoyé **en continu, jamais par à-coups** :
 | Curseurs | une fois par image | chaque curseur porte le nom de la personne |
 | Déplacements et redimensionnements | une fois par image, positions seules | le bloc suit la main, sans saut |
 | Traits en cours | à chaque nouveau point | le trait se dessine chez les autres pendant qu'on le trace |
+| Contenu d'un bloc (texte, code, couleur…) | à chaque frappe | la lettre apparaît chez les autres sans attendre |
 | Document complet | 220 ms après une modification | filet de sécurité qui remet tout le monde d'accord |
 
 Les curseurs reçus alimentent une cible, et une boucle d'animation les en rapproche image par
@@ -281,8 +282,8 @@ si le réseau livre les positions irrégulièrement. Chaque curseur affiche le n
 **et l'outil qu'elle tient** (crayon, gomme, forme, main…), mis à jour au moment où elle en
 change.
 
-Quand quelqu'un **écrit dans un bloc**, son curseur va se poser **sur la lettre en cours**, et
-suit la frappe, les flèches et les clics dans le texte. Le navigateur n'expose pas la position
+Quand quelqu'un **écrit dans un bloc**, son curseur devient un **stylo** posé **sur la lettre
+en cours**, et suit la frappe, les flèches et les clics dans le texte. Le navigateur n'expose pas la position
 du curseur de saisie : elle est mesurée en recopiant le champ dans un calque invisible
 ([caret.js](src/lib/caret.js)), en tenant compte du zoom du tableau.
 
