@@ -10,6 +10,21 @@ npm install
 npm run dev
 ```
 
+## Mise en ligne (GitHub Pages)
+
+Le site est publié automatiquement à chaque `push` sur `main` par le workflow
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml) : `npm ci`, `npm run build`, puis
+envoi de `dist/` à GitHub Pages.
+
+À faire une seule fois dans le dépôt : **Settings → Pages → Source : GitHub Actions**.
+
+Le site vit sous un sous-chemin (`/WebMood/`), c'est pourquoi
+[vite.config.js](vite.config.js) fixe `base` à `/WebMood/` **au build uniquement** — en
+développement on reste à la racine. Si le dépôt est renommé, c'est la seule ligne à changer.
+`public/.nojekyll` évite que GitHub passe la sortie dans Jekyll.
+
+Tout est local au navigateur (IndexedDB) : aucun serveur, aucune donnée qui sort de la machine.
+
 ## Barre d'outils
 
 La barre principale ne fait qu'une chose : **choisir un outil ou insérer un bloc**. Aucun de
