@@ -8,6 +8,7 @@ import RemoteCursors from './RemoteCursors.jsx'
 import ShareDialog from './ShareDialog.jsx'
 import ChatRail from './ChatRail.jsx'
 import QuickChat from './QuickChat.jsx'
+import Pings from './Pings.jsx'
 import { decodeBoard } from '../lib/share.js'
 import { makeCode, openSession } from '../lib/session.js'
 import { createShakeDetector } from '../lib/shake.js'
@@ -166,6 +167,7 @@ export default function Whiteboard() {
   const [typingPeers, setTypingPeers] = useState(new Set())
   const [bubbles, setBubbles] = useState(new Map())
   const [shaking, setShaking] = useState(new Set())
+  const [pings, setPings] = useState([])
   const [quick, setQuick] = useState(null) // saisie rapide ouverte à la position du curseur
   const [liveStatus, setLiveStatus] = useState('idle')
   const [liveError, setLiveError] = useState(null)
@@ -470,6 +472,29 @@ export default function Whiteboard() {
     })
   }, [])
 
+  /** Onde éphémère à l'endroit pointé. */
+  const addPing = useCallback((point, color, name) => {
+    const ping = { id: `${Date.now()}-${Math.random()}`, x: point.x, y: point.y, color, name }
+    setPings((current) => [...current, ping])
+    setTimeout(() => setPings((current) => current.filter((entry) => entry.id !== ping.id)), 1400)
+  }, [])
+
+  /** Bulle éphémère sous le curseur de la personne qui vient de parler. */
+  const showBubble = useCallback((id, text) => {
+    setBubbles((current) => new Map(current).set(id, { text, at: Date.now() }))
+    clearTimeout(bubbleTimers.current.get(id))
+    bubbleTimers.current.set(
+      id,
+      setTimeout(() => {
+        setBubbles((current) => {
+          const next = new Map(current)
+          next.delete(id)
+          return next
+        })
+      }, 6000),
+    )
+  }, [])
+
   const receive = useCallback(
     (message, from) => {
       switch (message.t) {
@@ -527,6 +552,10 @@ export default function Whiteboard() {
           showBubble(from, message.text)
           break
 
+        case 'mark':
+          addPing({ x: message.x, y: message.y }, message.color, message.name)
+          break
+
         case 'shake':
           // Le curseur grossit tant que la personne secoue, puis se calme tout seul.
           setShaking((current) => new Set(current).add(from))
@@ -574,24 +603,8 @@ export default function Whiteboard() {
           break
       }
     },
-    [applyRemote],
+    [applyRemote, addPing, showBubble],
   )
-
-  /** Bulle éphémère sous le curseur de la personne qui vient de parler. */
-  const showBubble = useCallback((id, text) => {
-    setBubbles((current) => new Map(current).set(id, { text, at: Date.now() }))
-    clearTimeout(bubbleTimers.current.get(id))
-    bubbleTimers.current.set(
-      id,
-      setTimeout(() => {
-        setBubbles((current) => {
-          const next = new Map(current)
-          next.delete(id)
-          return next
-        })
-      }, 6000),
-    )
-  }, [])
 
   /** Prévient les autres qu'on est en train d'écrire (points à la place du nom). */
   const setTyping = useCallback((on) => {
@@ -733,6 +746,7 @@ export default function Whiteboard() {
     setTypingPeers(new Set())
     setBubbles(new Map())
     setShaking(new Set())
+    setPings([])
     shakeDetector.current.reset()
     setQuick(null)
     setChat([])
@@ -1420,6 +1434,15 @@ export default function Whiteboard() {
   /* ---------- interactions pointeur ---------- */
 
   const onPointerDown = (event) => {
+    // Alt (Option) + clic : on pointe l'endroit, quel que soit l'outil, sans rien changer.
+    if (event.altKey && event.button === 0 && sessionRef.current) {
+      const at = toWorld(event.clientX, event.clientY)
+      const session = sessionRef.current
+      addPing(at, session.self.color, peerName)
+      session.send({ t: 'mark', x: at.x, y: at.y, color: session.self.color, name: peerName })
+      return
+    }
+
     setEditingId(null)
     setMenu(null)
     if (!(toolRef.current === 'select' && event.shiftKey)) clearSelection()
@@ -1533,6 +1556,20 @@ export default function Whiteboard() {
       bandRef.current = null
       setBand(null)
       const rect = normalizeRect(selecting.from, selecting.to)
+
+      // Clic sec dans le vide pendant une session : on pointe l'endroit pour les autres.
+      if (rect.w <= 3 && rect.h <= 3 && sessionRef.current) {
+        const session = sessionRef.current
+        addPing(selecting.from, session.self.color, peerName)
+        session.send({
+          t: 'mark',
+          x: selecting.from.x,
+          y: selecting.from.y,
+          color: session.self.color,
+          name: peerName,
+        })
+      }
+
       if (rect.w > 3 || rect.h > 3) {
         const hits = docRef.current.items
           .filter(
@@ -2056,6 +2093,8 @@ export default function Whiteboard() {
               leaf={nodeInfo.get(item.id)?.leaf}
             />
           ))}
+          <Pings pings={pings} />
+
           <RemoteCursors
             peers={peers}
             targets={cursorTargets}

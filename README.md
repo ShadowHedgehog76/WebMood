@@ -286,6 +286,14 @@ Pendant la session, un **rail apparaît à droite**, symétrique de celui des ta
 colorée avec leurs initiales) et une pastille rouge en cas de messages non lus ; au survol il
 s'ouvre sur les noms et le **tchat** de la session.
 
+### Pointer un endroit
+
+En **mode sélection**, un clic sec dans le vide envoie une **onde** à l'endroit cliqué, chez
+tout le monde ([Pings.jsx](src/components/Pings.jsx)) : deux cercles qui s'ouvrent, à la
+couleur de la personne, avec son nom. **Alt (Option) + clic** fait la même chose **quel que
+soit l'outil** et sans rien perturber : pas de trait au crayon, pas de bloc déplacé ni
+sélectionné. L'onde s'efface au bout d'une seconde.
+
 ### Secouer pour se faire voir
 
 Comme sur macOS : **secouer sa souris** fait grossir son curseur chez tout le monde pendant une
@@ -368,6 +376,7 @@ src/
     ShareDialog.jsx         code de partage et session pair-à-pair
     ChatRail.jsx            rail droit : participants repliés, tchat déployé
     QuickChat.jsx           saisie rapide ouverte à la position du curseur
+    Pings.jsx               ondes visuelles pour pointer un endroit
     RemoteCursors.jsx       curseurs des participants, interpolés
     Icons.jsx               jeu d'icônes SVG inline (aucune dépendance)
     BoardItem.jsx           élément image / code / visuel / groupe : déplacer, redimensionner

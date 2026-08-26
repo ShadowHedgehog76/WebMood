@@ -56,6 +56,9 @@ function BoardItem({
   )
 
   const startDrag = (event, mode) => {
+    // Alt + clic sert à pointer : on laisse l'événement filer jusqu'au tableau.
+    if (event.altKey) return
+
     // Clic droit sur un bloc : on garde l'événement pour son menu, pas pour naviguer.
     if (event.button === 2) {
       if (interactive) event.stopPropagation()

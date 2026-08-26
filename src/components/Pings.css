@@ -1,0 +1,71 @@
+.ping {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 6;
+  transform: scale(var(--inv, 1));
+  transform-origin: 0 0;
+}
+
+.ping span {
+  position: absolute;
+  left: -34px;
+  top: -34px;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 2.5px solid var(--peer);
+  opacity: 0;
+  animation: ping-out 1.1s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+.ping span:last-of-type {
+  animation-delay: 0.18s;
+}
+
+.ping em {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--peer);
+  color: #fff;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  animation: ping-label 1.2s ease-out forwards;
+}
+
+@keyframes ping-out {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.25);
+  }
+  70% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes ping-label {
+  0%,
+  15% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  30%,
+  70% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+  }
+}
