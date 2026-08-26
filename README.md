@@ -286,6 +286,14 @@ Pendant la session, un **rail apparaît à droite**, symétrique de celui des ta
 colorée avec leurs initiales) et une pastille rouge en cas de messages non lus ; au survol il
 s'ouvre sur les noms et le **tchat** de la session.
 
+### Secouer pour se faire voir
+
+Comme sur macOS : **secouer sa souris** fait grossir son curseur chez tout le monde pendant une
+seconde, puis il reprend sa taille. La détection est locale
+([shake.js](src/lib/shake.js)) — au moins cinq changements de sens dans une fenêtre de 450 ms,
+à plus de 900 px/s — et seul un petit message `shake` circule, au plus toutes les 400 ms. Un
+déplacement rectiligne ou une hésitation lente ne déclenchent rien.
+
 ### Message rapide
 
 Une touche **Entrée** ouvre une saisie à l'endroit du curseur
@@ -387,6 +395,7 @@ src/
     export.js               export PNG (canvas + foreignObject) et JSON
     share.js                code de partage : compression et encodage
     session.js              session WebRTC : connexions, relais, messages
+    shake.js                détection du secouage de souris
     preview.js              vignette d'un tableau : rectangles normalisés stockés dans l'index
     palette.js              palette générée (16 teintes × 5 valeurs + gris)
 ```

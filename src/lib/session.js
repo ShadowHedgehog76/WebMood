@@ -36,7 +36,7 @@ async function makePeer(id) {
  * Ouvre une session. `host: true` crée le code, sinon on rejoint `code`.
  * Renvoie une poignée : { code, isHost, self, send, sendTo, close }.
  */
-const RELAYED = new Set(['doc', 'items', 'ink', 'inkEnd', 'cursor', 'chat', 'typing'])
+const RELAYED = new Set(['doc', 'items', 'ink', 'inkEnd', 'cursor', 'chat', 'typing', 'shake'])
 
 // Battement de cœur : l'hôte donne signe de vie, les invités surveillent.
 const PING_EVERY = 2000

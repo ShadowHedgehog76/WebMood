@@ -10,6 +10,7 @@ import ChatRail from './ChatRail.jsx'
 import QuickChat from './QuickChat.jsx'
 import { decodeBoard } from '../lib/share.js'
 import { makeCode, openSession } from '../lib/session.js'
+import { createShakeDetector } from '../lib/shake.js'
 import { snapPosition } from '../lib/snap.js'
 import { IconMinus, IconPlus } from './Icons.jsx'
 import Links from './Links.jsx'
@@ -130,6 +131,9 @@ export default function Whiteboard() {
   const pointerScreen = useRef({ x: 0, y: 0 })
   const typingSent = useRef(false)
   const bubbleTimers = useRef(new Map())
+  const shakeDetector = useRef(createShakeDetector())
+  const shakeSentAt = useRef(0)
+  const shakeTimers = useRef(new Map())
 
   const [doc, setDoc] = useState(EMPTY_DOC)
   const [tool, setTool] = useState('pen')
@@ -161,6 +165,7 @@ export default function Whiteboard() {
   const [notice, setNotice] = useState(null)
   const [typingPeers, setTypingPeers] = useState(new Set())
   const [bubbles, setBubbles] = useState(new Map())
+  const [shaking, setShaking] = useState(new Set())
   const [quick, setQuick] = useState(null) // saisie rapide ouverte à la position du curseur
   const [liveStatus, setLiveStatus] = useState('idle')
   const [liveError, setLiveError] = useState(null)
@@ -522,6 +527,22 @@ export default function Whiteboard() {
           showBubble(from, message.text)
           break
 
+        case 'shake':
+          // Le curseur grossit tant que la personne secoue, puis se calme tout seul.
+          setShaking((current) => new Set(current).add(from))
+          clearTimeout(shakeTimers.current.get(from))
+          shakeTimers.current.set(
+            from,
+            setTimeout(() => {
+              setShaking((current) => {
+                const next = new Set(current)
+                next.delete(from)
+                return next
+              })
+            }, 1100),
+          )
+          break
+
         case 'typing':
           setTypingPeers((current) => {
             const next = new Set(current)
@@ -536,6 +557,11 @@ export default function Whiteboard() {
           peerToolsRef.current.delete(from)
           setPeerTools(new Map(peerToolsRef.current))
           setTypingPeers((current) => {
+            const next = new Set(current)
+            next.delete(from)
+            return next
+          })
+          setShaking((current) => {
             const next = new Set(current)
             next.delete(from)
             return next
@@ -706,6 +732,8 @@ export default function Whiteboard() {
     setPeerTools(new Map())
     setTypingPeers(new Set())
     setBubbles(new Map())
+    setShaking(new Set())
+    shakeDetector.current.reset()
     setQuick(null)
     setChat([])
     setUnread(0)
@@ -1457,6 +1485,15 @@ export default function Whiteboard() {
 
   const onPointerMove = (event) => {
     pointerScreen.current = { x: event.clientX, y: event.clientY }
+
+    // Secouer la souris fait grossir son curseur chez les autres.
+    if (sessionRef.current) {
+      const now = event.timeStamp || Date.now()
+      if (shakeDetector.current.push(event.clientX, event.clientY, now) && now - shakeSentAt.current > 400) {
+        shakeSentAt.current = now
+        sessionRef.current.send({ t: 'shake' })
+      }
+    }
     const move = nextMove.current ?? {}
 
     if (pendingRef.current && !pan.current) move.link = toWorld(event.clientX, event.clientY)
@@ -2025,6 +2062,7 @@ export default function Whiteboard() {
             tools={peerTools}
             typing={typingPeers}
             bubbles={bubbles}
+            shaking={shaking}
           />
 
           {guides.map((guide, index) => (

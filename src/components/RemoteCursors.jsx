@@ -28,7 +28,7 @@ const EASE = 0.32
  * boucle d'animation rapproche le curseur affiché de cette cible : le déplacement reste
  * continu même si les messages arrivent par à-coups.
  */
-export default function RemoteCursors({ peers, targets, tools, typing, bubbles }) {
+export default function RemoteCursors({ peers, targets, tools, typing, bubbles, shaking }) {
   const nodes = useRef(new Map())
   const shown = useRef(new Map())
 
@@ -68,7 +68,7 @@ export default function RemoteCursors({ peers, targets, tools, typing, bubbles }
             shown.current.delete(peer.id)
           }
         }}
-        className="peer-cursor"
+        className={`peer-cursor ${shaking.has(peer.id) ? 'is-shaking' : ''}`}
         style={{ '--peer': peer.color }}
       >
         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
