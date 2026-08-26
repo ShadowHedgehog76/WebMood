@@ -7,6 +7,7 @@ import {
   IconLink,
   IconPen,
   IconSquare,
+  IconText,
 } from './Icons.jsx'
 import './RemoteCursors.css'
 
@@ -19,6 +20,7 @@ const TOOL_ICONS = {
   link: IconLink,
   group: IconGroup,
   hand: IconHand,
+  text: IconText,
 }
 
 const EASE = 0.32

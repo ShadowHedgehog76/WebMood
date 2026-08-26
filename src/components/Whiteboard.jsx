@@ -12,6 +12,7 @@ import Pings from './Pings.jsx'
 import { decodeBoard } from '../lib/share.js'
 import { makeCode, openSession } from '../lib/session.js'
 import { createShakeDetector } from '../lib/shake.js'
+import { caretPoint } from '../lib/caret.js'
 import { snapPosition } from '../lib/snap.js'
 import { IconMinus, IconPlus } from './Icons.jsx'
 import Links from './Links.jsx'
@@ -760,6 +761,7 @@ export default function Whiteboard() {
     localStorage.setItem('moodboard:name', peerName)
   }, [peerName])
 
+
   // Toute modification locale part aux autres, sauf celles qui viennent d'eux.
   // Un invité attend d'avoir reçu le tableau de l'hôte : sans ça, un arrivant au
   // tableau vide écraserait celui de tout le monde.
@@ -959,6 +961,26 @@ export default function Whiteboard() {
     const step = (spawnIndex.current++ % 6) * 30
     return { x: center.x + step, y: center.y + step }
   }, [toWorld])
+
+  /**
+   * Quand on écrit dans un bloc, les autres voient notre curseur se poser sur la lettre
+   * en cours. `selectionchange` couvre la frappe, les flèches et les clics dans le texte.
+   */
+  useEffect(() => {
+    if (!session) return undefined
+    const follow = () => {
+      const field = document.activeElement
+      if (!field || (field.tagName !== 'TEXTAREA' && field.tagName !== 'INPUT')) return
+      if (!itemsRef.current?.contains(field)) return
+
+      const point = caretPoint(field)
+      if (!point) return
+      const world = toWorld(point.x, point.y)
+      sessionRef.current?.send({ t: 'cursor', x: world.x, y: world.y, tool: 'text' })
+    }
+    document.addEventListener('selectionchange', follow)
+    return () => document.removeEventListener('selectionchange', follow)
+  }, [session, toWorld])
 
   /* ---------- éléments ---------- */
 
@@ -1762,14 +1784,22 @@ export default function Whiteboard() {
         spaceDown.current = true
         setPanning(true)
       }
-      if (event.key === 'v') setTool('select')
-      if (event.key === 'p') setTool('pen')
-      if (event.key === 'e') setTool('eraser')
-      if (event.key === 'h') setTool('hand')
-      if (event.key === 'l') setTool('link')
-      if (event.key === 'g') setTool('group')
-      if (event.key === 's') setTool('shape')
-      if (event.key === 't') addText('note')
+      // La lettre du raccourci ne doit pas finir dans le champ qu'il vient d'ouvrir.
+      const shortcuts = {
+        v: () => setTool('select'),
+        p: () => setTool('pen'),
+        e: () => setTool('eraser'),
+        h: () => setTool('hand'),
+        l: () => setTool('link'),
+        g: () => setTool('group'),
+        s: () => setTool('shape'),
+        t: () => addText('note'),
+      }
+      if (shortcuts[event.key]) {
+        event.preventDefault()
+        shortcuts[event.key]()
+        return
+      }
       if (
         (event.key === 'Delete' || event.key === 'Backspace') &&
         (selection.items.length || selection.link)

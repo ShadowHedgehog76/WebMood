@@ -281,6 +281,11 @@ si le réseau livre les positions irrégulièrement. Chaque curseur affiche le n
 **et l'outil qu'elle tient** (crayon, gomme, forme, main…), mis à jour au moment où elle en
 change.
 
+Quand quelqu'un **écrit dans un bloc**, son curseur va se poser **sur la lettre en cours**, et
+suit la frappe, les flèches et les clics dans le texte. Le navigateur n'expose pas la position
+du curseur de saisie : elle est mesurée en recopiant le champ dans un calque invisible
+([caret.js](src/lib/caret.js)), en tenant compte du zoom du tableau.
+
 Pendant la session, un **rail apparaît à droite**, symétrique de celui des tableaux
 ([ChatRail.jsx](src/components/ChatRail.jsx)) : replié il montre les **participants** (pastille
 colorée avec leurs initiales) et une pastille rouge en cas de messages non lus ; au survol il
@@ -405,6 +410,7 @@ src/
     share.js                code de partage : compression et encodage
     session.js              session WebRTC : connexions, relais, messages
     shake.js                détection du secouage de souris
+    caret.js                position à l'écran du curseur de saisie
     preview.js              vignette d'un tableau : rectangles normalisés stockés dans l'index
     palette.js              palette générée (16 teintes × 5 valeurs + gris)
 ```
