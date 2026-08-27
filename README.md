@@ -284,15 +284,23 @@ saisit rejoint le tableau. Les navigateurs se parlent **directement en WebRTC**
 ([session.js](src/lib/session.js), PeerJS chargé à la demande) — un annuaire public sert
 uniquement à la mise en relation, aucune donnée du tableau n'y transite.
 
-Tout est envoyé **en continu, jamais par à-coups** :
+Deux régimes, choisis pour que la liaison tienne dans la durée :
 
-| Ce qui circule | Cadence | Effet |
+| Ce qui circule | Cadence | Pourquoi |
 | --- | --- | --- |
-| Curseurs | une fois par image | chaque curseur porte le nom de la personne |
-| Déplacements et redimensionnements | une fois par image, positions seules | le bloc suit la main, sans saut |
-| Traits en cours | à chaque nouveau point | le trait se dessine chez les autres pendant qu'on le trace |
-| Contenu d'un bloc (texte, code, couleur…) | à chaque frappe | la lettre apparaît chez les autres sans attendre |
-| Document complet | 220 ms après une modification | filet de sécurité qui remet tout le monde d'accord |
+| **Curseurs** | une fois par image | c'est ce qui donne la présence des autres |
+| **Tchat** (bulles comprises) | immédiat | un message ne se fait pas attendre |
+| Tout le reste — blocs, textes, traits, connexions | un **résumé toutes les 320 ms** | assez pour suivre, assez peu pour ne jamais s'engorger |
+
+Le résumé ne contient **que ce qui a changé depuis le précédent**, et pour un bloc modifié,
+**seuls les champs concernés** : déplacer une image n'en renvoie pas les données, seulement
+ses coordonnées. Le trait en cours de tracé n'envoie que ses **nouveaux points**. C'est une
+réécriture volontaire d'une première version qui diffusait le document entier — images
+comprises — toutes les 220 ms : impeccable au début, saturée au bout de quelques minutes.
+
+À la réception, un mouvement reçu **glisse** vers sa nouvelle place en 0,32 s au lieu d'y
+sauter : on garde la sensation du direct sans en payer le débit. La transition est désactivée
+si l'on est soi-même en train de manipuler un bloc, pour ne pas le faire traîner.
 
 Les curseurs reçus alimentent une cible, et une boucle d'animation les en rapproche image par
 image ([RemoteCursors.jsx](src/components/RemoteCursors.jsx)) : le mouvement reste fluide même

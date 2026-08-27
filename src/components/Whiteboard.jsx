@@ -50,7 +50,6 @@ const MIN_SCALE = 0.2
 const MAX_SCALE = 5
 const GRID_STEP = 40
 const EMPTY_DOC = { strokes: [], items: [], links: [] }
-const GEOMETRY = new Set(['x', 'y', 'w', 'h'])
 
 
 /** Tuile d'un point de grille, régénérée seulement quand le pas ou le rayon change. */
@@ -128,7 +127,8 @@ export default function Whiteboard() {
   const fromRemote = useRef(false)
   const cursorTargets = useRef(new Map()) // id → position visée, lue par la boucle d'animation
   const remoteInk = useRef(new Map()) // traits des autres, en cours de tracé
-  const outbox = useRef({ ids: new Set(), frame: 0 })
+  const lastLocalEdit = useRef(0)
+  const tweenTimer = useRef(0)
   const gotRemoteDoc = useRef(false)
   const peerToolsRef = useRef(new Map())
   const pointerScreen = useRef({ x: 0, y: 0 })
@@ -465,28 +465,101 @@ export default function Whiteboard() {
     setDoc(next)
   }, [])
 
-  /** Positions et tailles à jour des blocs cités, pour un envoi compact. */
-  const snapshotOf = (ids) =>
-    [...ids]
-      .map((id) => docRef.current.items.find((item) => item.id === id))
-      .filter(Boolean)
-      .map(({ id, x, y, w, h }) => ({ id, x, y, w, h }))
+  /**
+   * Synchronisation par résumé : au lieu d'un flot continu (et du document entier toutes
+   * les 220 ms, images comprises, qui finissait par saturer la liaison), chaque pair
+   * envoie trois fois par seconde ce qui a changé depuis son dernier envoi — et
+   * uniquement les champs modifiés. À la réception, les blocs glissent vers leur nouvelle
+   * place : on garde la sensation du direct sans le débit.
+   */
+  const sent = useRef({ items: new Map(), strokes: new Set(), links: null, ink: null })
+
+  const resetDigest = useCallback(() => {
+    sent.current = {
+      items: new Map(docRef.current.items.map((item) => [item.id, item])),
+      strokes: new Set(docRef.current.strokes.map((stroke) => stroke.id)),
+      links: docRef.current.links,
+      ink: null,
+    }
+  }, [])
 
   /**
-   * Envoi des déplacements en cours : une fois par image, sans attendre la fin du geste.
-   * C'est ce qui évite l'effet « saut » chez les autres participants.
+   * Marque comme « déjà connu » ce qu'un pair vient de nous envoyer — et rien d'autre :
+   * repartir de zéro effacerait nos propres modifications pas encore transmises.
    */
-  const streamItems = useCallback((ids) => {
-    if (!sessionRef.current || !ids?.length) return
-    for (const id of ids) outbox.current.ids.add(id)
-    if (outbox.current.frame) return
+  const absorb = useCallback((message) => {
+    const doc = docRef.current
+    const state = sent.current
+    for (const delta of message.items ?? []) {
+      const item = doc.items.find((candidate) => candidate.id === delta.id)
+      if (item) state.items.set(item.id, item)
+    }
+    for (const id of message.removed ?? []) state.items.delete(id)
+    for (const stroke of message.strokes ?? []) state.strokes.add(stroke.id)
+    for (const id of message.erased ?? []) state.strokes.delete(id)
+    if (message.links) state.links = doc.links
+  }, [])
 
-    outbox.current.frame = requestAnimationFrame(() => {
-      outbox.current.frame = 0
-      const list = snapshotOf(outbox.current.ids)
-      outbox.current.ids.clear()
-      if (list.length) sessionRef.current?.send({ t: 'items', list })
-    })
+  const buildDigest = useCallback(() => {
+    const doc = docRef.current
+    const previous = sent.current
+    const digest = {}
+
+    // Blocs : seuls les champs qui ont bougé partent (une image déplacée n'est pas renvoyée).
+    const items = []
+    const present = new Set()
+    for (const item of doc.items) {
+      present.add(item.id)
+      const before = previous.items.get(item.id)
+      if (before === item) continue
+      if (!before) {
+        items.push(item)
+        continue
+      }
+      const delta = { id: item.id }
+      for (const key of Object.keys(item)) {
+        if (item[key] !== before[key]) delta[key] = item[key]
+      }
+      if (Object.keys(delta).length > 1) items.push(delta)
+    }
+    const gone = [...previous.items.keys()].filter((id) => !present.has(id))
+    if (items.length) digest.items = items
+    if (gone.length) digest.removed = gone
+
+    // Traits : les nouveaux en entier, les disparus par identifiant.
+    const strokeIds = new Set(doc.strokes.map((stroke) => stroke.id))
+    const fresh = doc.strokes.filter((stroke) => !previous.strokes.has(stroke.id))
+    const erased = [...previous.strokes].filter((id) => !strokeIds.has(id))
+    if (fresh.length) digest.strokes = fresh
+    if (erased.length) digest.erased = erased
+
+    if (doc.links !== previous.links) digest.links = doc.links
+
+    // Trait en cours : seulement les points ajoutés depuis le dernier envoi.
+    const live = liveStroke.current
+    if (live) {
+      const already = previous.ink?.id === live.id ? previous.ink.count : 0
+      if (live.points.length > already) {
+        digest.ink = {
+          id: live.id,
+          tool: live.tool,
+          color: live.color,
+          size: live.size,
+          from: already,
+          points: live.points.slice(already),
+        }
+      }
+    }
+
+    if (!Object.keys(digest).length) return null
+
+    sent.current = {
+      items: new Map(doc.items.map((item) => [item.id, item])),
+      strokes: strokeIds,
+      links: doc.links,
+      ink: live ? { id: live.id, count: live.points.length } : null,
+    }
+    return digest
   }, [])
 
   /** Onde éphémère à l'endroit pointé. */
@@ -522,6 +595,7 @@ export default function Whiteboard() {
         case 'doc':
           gotRemoteDoc.current = true
           applyRemote(message.doc)
+          resetDigest()
           // Le document reçu contient les traits terminés : on retire nos copies vivantes.
           for (const [id, ink] of remoteInk.current) {
             if (message.doc?.strokes?.some((stroke) => stroke.id === ink.id)) {
@@ -531,39 +605,59 @@ export default function Whiteboard() {
           painters.current.paintStrokes()
           break
 
-        case 'patch': {
+        case 'sync': {
           fromRemote.current = true
-          const next = {
-            ...docRef.current,
-            items: docRef.current.items.map((item) =>
-              item.id === message.id ? { ...item, ...message.patch } : item,
-            ),
+          const doc = docRef.current
+          let items = doc.items
+
+          if (message.items?.length) {
+            const known = new Map(items.map((item) => [item.id, item]))
+            for (const delta of message.items) {
+              const before = known.get(delta.id)
+              known.set(delta.id, before ? { ...before, ...delta } : delta)
+            }
+            items = [...known.values()]
           }
+          if (message.removed?.length) {
+            const dropped = new Set(message.removed)
+            items = items.filter((item) => !dropped.has(item.id))
+          }
+
+          let strokes = doc.strokes
+          if (message.strokes?.length) {
+            const known = new Set(strokes.map((stroke) => stroke.id))
+            strokes = [...strokes, ...message.strokes.filter((stroke) => !known.has(stroke.id))]
+            // Le trait est arrivé complet : sa copie « en cours » n'a plus lieu d'être.
+            for (const [peer, ink] of remoteInk.current) {
+              if (message.strokes.some((stroke) => stroke.id === ink.id)) {
+                remoteInk.current.delete(peer)
+              }
+            }
+          }
+          if (message.erased?.length) {
+            const dropped = new Set(message.erased)
+            strokes = strokes.filter((stroke) => !dropped.has(stroke.id))
+          }
+
+          const next = { items, strokes, links: message.links ?? doc.links }
           docRef.current = next
           setDoc(next)
-          break
-        }
+          absorb(message)
 
-        case 'items': {
-          const patch = new Map(message.list.map((entry) => [entry.id, entry]))
-          fromRemote.current = true
-          const next = {
-            ...docRef.current,
-            items: docRef.current.items.map((item) => {
-              const update = patch.get(item.id)
-              return update ? { ...item, ...update } : item
-            }),
+          if (message.ink) {
+            const ink = remoteInk.current.get(from)
+            if (ink && ink.id === message.ink.id) ink.points.push(...message.ink.points)
+            else remoteInk.current.set(from, { ...message.ink, points: [...message.ink.points] })
           }
-          docRef.current = next
-          setDoc(next)
-          break
-        }
-
-        case 'ink': {
-          const ink = remoteInk.current.get(from)
-          if (ink && ink.id === message.id) ink.points.push(...message.points)
-          else remoteInk.current.set(from, { ...message.stroke, points: [...message.points] })
           painters.current.paintStrokes()
+
+          // Un mouvement reçu se joue en douceur, sauf si on est soi-même en train de
+          // manipuler un bloc : la transition ferait traîner celui qu'on tient.
+          if (message.items?.length && Date.now() - lastLocalEdit.current > 500) {
+            setTween(true)
+            clearTimeout(tweenTimer.current)
+            tweenTimer.current = setTimeout(() => setTween(false), 420)
+          }
           break
         }
 
@@ -633,7 +727,7 @@ export default function Whiteboard() {
           break
       }
     },
-    [applyRemote, addPing, showBubble],
+    [applyRemote, addPing, showBubble, resetDigest, absorb],
   )
 
   /** Prévient les autres qu'on est en train d'écrire (points à la place du nom). */
@@ -696,6 +790,7 @@ export default function Whiteboard() {
           },
         })
         gotRemoteDoc.current = false
+        resetDigest()
         sessionRef.current = handle
         setSession(handle)
         setLiveStatus('ready')
@@ -712,7 +807,7 @@ export default function Whiteboard() {
         return false
       }
     },
-    [receive, peerName, announceNotice],
+    [receive, peerName, announceNotice, resetDigest],
   )
 
   /**
@@ -797,19 +892,20 @@ export default function Whiteboard() {
   }, [peerName])
 
 
-  // Toute modification locale part aux autres, sauf celles qui viennent d'eux.
-  // Un invité attend d'avoir reçu le tableau de l'hôte : sans ça, un arrivant au
-  // tableau vide écraserait celui de tout le monde.
+  // Trois envois par seconde : assez pour suivre, assez peu pour ne jamais s'engorger.
   useEffect(() => {
     if (!session) return undefined
-    if (!session.isHost && !gotRemoteDoc.current) return undefined
-    if (fromRemote.current) {
-      fromRemote.current = false
-      return undefined
-    }
-    const timer = setTimeout(() => session.send({ t: 'doc', doc: docRef.current }), 220)
-    return () => clearTimeout(timer)
-  }, [doc, session])
+
+    const timer = setInterval(() => {
+      // Un invité attend le tableau de l'hôte avant d'émettre le sien (vérifié à chaque
+      // battement : la valeur arrive après la mise en place de la boucle).
+      if (!session.isHost && !gotRemoteDoc.current) return
+      const digest = buildDigest()
+      if (digest) session.send({ t: 'sync', ...digest })
+    }, 320)
+
+    return () => clearInterval(timer)
+  }, [session, buildDigest])
 
   const importCode = useCallback(
     async (code) => {
@@ -1029,8 +1125,6 @@ export default function Whiteboard() {
     [commit],
   )
 
-  const touched = useRef([])
-
   const changeItem = useCallback(
     (id, patch, recordHistory) => {
       write((d) => {
@@ -1067,26 +1161,11 @@ export default function Whiteboard() {
         if (next.type === 'group' && next.autoSort && (patch.w !== undefined || patch.h !== undefined)) {
           items = layoutGroup(items, next)
         }
-        if (sessionRef.current) {
-          touched.current = [id, ...(moving ?? [])]
-          // Le contenu (texte, code, couleur…) ne peut pas attendre la synchro complète :
-          // il part tout de suite, champ par champ.
-          const content = Object.fromEntries(
-            Object.entries(patch).filter(([key]) => !GEOMETRY.has(key)),
-          )
-          if (Object.keys(content).length) {
-            sessionRef.current.send({ t: 'patch', id, patch: content })
-          }
-        }
+        if (!recordHistory) lastLocalEdit.current = Date.now()
         return { ...d, items }
       }, recordHistory)
-
-      if (touched.current.length) {
-        streamItems(touched.current)
-        touched.current = []
-      }
     },
-    [write, streamItems],
+    [write],
   )
 
   /** Aimante un bloc déplacé seul aux bords et centres des autres. */
@@ -1695,14 +1774,6 @@ export default function Whiteboard() {
       const fresh = events.map((e) => toWorld(e.clientX, e.clientY))
       liveStroke.current.points.push(...fresh)
       move.paint = true
-      if (sessionRef.current) {
-        sessionRef.current.send({
-          t: 'ink',
-          id: liveStroke.current.id,
-          stroke: liveStroke.current,
-          points: fresh,
-        })
-      }
     }
 
     if (sessionRef.current) move.cursor = toWorld(event.clientX, event.clientY)
