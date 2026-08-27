@@ -1625,17 +1625,17 @@ export default function Whiteboard() {
           point,
           snapReach(viewRef.current.scale),
         )
-        const end = nearestArcEnd(id, point)
-        setArcSnap(end ?? (anchor ? { x: anchor.x, y: anchor.y } : null))
+        const end = anchor ? null : nearestArcEnd(id, point, 0.45)
+        setArcSnap(anchor ? { x: anchor.x, y: anchor.y } : end)
       }
     },
     [write],
   )
 
   /** Extrémité d'un autre arc, si elle est à portée. */
-  const nearestArcEnd = useCallback((id, point) => {
+  const nearestArcEnd = useCallback((id, point, ratio = 1) => {
     const byId = new Map(docRef.current.items.map((item) => [item.id, item]))
-    const reach = snapReach(viewRef.current.scale)
+    const reach = snapReach(viewRef.current.scale) * ratio
     let best = null
     for (const candidate of arcEnds(docRef.current.links, id)) {
       const position = resolveEnd(candidate.point, byId)
@@ -1664,8 +1664,11 @@ export default function Whiteboard() {
         return
       }
 
-      const junction = nearestArcEnd(id, point)
-      const value = junction ? { x: junction.x, y: junction.y } : snapEnd(point)
+      // Un bloc à portée l'emporte, et un raccord d'arc demande d'être bien plus précis :
+      // deux flèches qui arrivent au même endroit doivent pouvoir rester indépendantes.
+      const anchored = snapEnd(point)
+      const junction = anchored.id ? null : nearestArcEnd(id, point, 0.45)
+      const value = junction ? { x: junction.x, y: junction.y } : anchored
 
       commit((d) => {
         const byId = new Map(d.items.map((item) => [item.id, item]))

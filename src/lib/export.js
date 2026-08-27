@@ -6,7 +6,7 @@
  * (que la sérialisation HTML ne transporte pas).
  */
 
-import { arrowHead, linkGeometry } from './links.js'
+import { arrowHead, linkGeometry, pathWithArrows } from './links.js'
 import { branchPath, branches } from './mindmap.js'
 
 const XHTML = 'http://www.w3.org/1999/xhtml'
@@ -173,7 +173,7 @@ function drawLinks(ctx, doc, items) {
     ctx.fillStyle = color
     ctx.lineWidth = width
     ctx.lineCap = 'round'
-    ctx.stroke(new Path2D(geometry.d))
+    ctx.stroke(new Path2D(pathWithArrows(geometry, link.arrow, width)))
     if (link.arrow === 'start' || link.arrow === 'both') {
       ctx.fill(new Path2D(arrowHead(geometry.start, geometry.startDir, width * 5)))
     }

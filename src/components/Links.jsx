@@ -6,6 +6,7 @@ import {
   controlsOf,
   arrowHead,
   linkGeometry,
+  pathWithArrows,
   pendingGeometry,
   resolveEnd,
 } from '../lib/links.js'
@@ -65,17 +66,25 @@ function Links({ links, items, branches, view, selectedId, interactive, pending,
           const end = project(b)
           const first = project(c1)
           const second = project(c2)
-          const d = arcPath(start, first, second, end)
+          const geometry = {
+            start,
+            end,
+            c1: first,
+            c2: second,
+            startDir: arcDirection(first, start),
+            endDir: arcDirection(second, end),
+          }
+          const d = pathWithArrows(geometry, link.arrow, width)
 
           return (
             <g key={link.id} className={`link ${selected ? 'is-selected' : ''}`}>
               {selected && <path className="link__halo" d={d} strokeWidth={width * 4.5} />}
               <path className="link__line" d={d} stroke={color} strokeWidth={width} fill="none" />
               {(link.arrow === 'start' || link.arrow === 'both') && (
-                <path d={arrowHead(start, arcDirection(first, start), width * 5)} fill={color} />
+                <path d={arrowHead(start, geometry.startDir, width * 5)} fill={color} />
               )}
               {(link.arrow === 'end' || link.arrow === 'both') && (
-                <path d={arrowHead(end, arcDirection(second, end), width * 5)} fill={color} />
+                <path d={arrowHead(end, geometry.endDir, width * 5)} fill={color} />
               )}
               {interactive && (
                 <path
@@ -102,7 +111,7 @@ function Links({ links, items, branches, view, selectedId, interactive, pending,
             {selected && <path className="link__halo" d={geometry.d} strokeWidth={width * 4.5} />}
             <path
               className="link__line"
-              d={geometry.d}
+              d={pathWithArrows(geometry, link.arrow, width)}
               stroke={color}
               strokeWidth={width}
               fill="none"

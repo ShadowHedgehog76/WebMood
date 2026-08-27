@@ -55,6 +55,8 @@ function curve(start, startNormal, end, endNormal) {
     d: `M ${start.x} ${start.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`,
     start,
     end,
+    c1,
+    c2,
     // Tangentes aux extrémités : du point de contrôle vers l'extrémité.
     startDir: normalize(start.x - c1.x, start.y - c1.y),
     endDir: normalize(end.x - c2.x, end.y - c2.y),
@@ -237,4 +239,23 @@ export function arcEnds(links, exceptId) {
 export function arcDirection(from, to) {
   const length = Math.hypot(to.x - from.x, to.y - from.y) || 1
   return { x: (to.x - from.x) / length, y: (to.y - from.y) / length }
+}
+
+/**
+ * Chemin raccourci aux extrémités qui portent une pointe de flèche : sans cela, le trait
+ * dépasse de la pointe (surtout avec un trait épais et des bouts arrondis).
+ */
+export function pathWithArrows(geometry, arrow, width) {
+  const cut = width * 3.2
+  const back = (point, direction) => ({
+    x: point.x - direction.x * cut,
+    y: point.y - direction.y * cut,
+  })
+
+  const start =
+    arrow === 'start' || arrow === 'both' ? back(geometry.start, geometry.startDir) : geometry.start
+  const end =
+    arrow === 'end' || arrow === 'both' ? back(geometry.end, geometry.endDir) : geometry.end
+
+  return `M ${start.x} ${start.y} C ${geometry.c1.x} ${geometry.c1.y}, ${geometry.c2.x} ${geometry.c2.y}, ${end.x} ${end.y}`
 }
