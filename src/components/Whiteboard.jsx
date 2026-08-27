@@ -11,6 +11,8 @@ import QuickChat from './QuickChat.jsx'
 import Pings from './Pings.jsx'
 import ArcHandles from './ArcHandles.jsx'
 import Tour, { STEPS } from './Tour.jsx'
+import Search from './Search.jsx'
+import Present from './Present.jsx'
 import { decodeBoard } from '../lib/share.js'
 import { makeCode, openSession } from '../lib/session.js'
 import { createShakeDetector } from '../lib/shake.js'
@@ -28,7 +30,8 @@ import {
   sketchItem,
   textItem,
 } from '../lib/files.js'
-import { autoLayout, groupFor } from '../lib/groups.js'
+import { autoLayout, contains, groupFor } from '../lib/groups.js'
+import { fitView, frameItem, orderFrames } from '../lib/frames.js'
 import { branches, childrenOf, layoutTree, progressOf, rootOf, subtree } from '../lib/mindmap.js'
 import {
   CLOSED,
@@ -167,6 +170,8 @@ export default function Whiteboard() {
   const [markerSize, setMarkerSize] = useState(20)
   const [eraserMode, setEraserMode] = useState('pixel') // 'pixel' ou 'stroke'
   const [linkStyle, setLinkStyle] = useState('curve') // 'curve', 'elbow' ou 'straight'
+  const [searching, setSearching] = useState(false)
+  const [present, setPresent] = useState(null) // index de la scène montrée, ou rien
   const [arrow, setArrow] = useState('end')
   const [shape, setShape] = useState('rect')
   const [filled, setFilled] = useState(false)
@@ -1223,6 +1228,14 @@ export default function Whiteboard() {
             if (!item) continue
             if (item.type === 'group') for (const member of item.members) set.add(member)
             if (item.type === 'node') for (const node of subtree(nodes, rootId)) set.add(node.id)
+            // Un cadre emporte la scène qu'il délimite : tout ce dont le centre est dedans.
+            if (item.type === 'frame') {
+              for (const inside of d.items) {
+                if (inside.id === rootId || inside.type === 'frame') continue
+                const middle = { x: inside.x + inside.w / 2, y: inside.y + inside.h / 2 }
+                if (contains(item, middle)) set.add(inside.id)
+              }
+            }
           }
           set.delete(id)
           moving = set.size ? set : null
@@ -1962,6 +1975,15 @@ export default function Whiteboard() {
 
     const current = toolRef.current
 
+    if (current === 'frame') {
+      const rank = docRef.current.items.filter((item) => item.type === 'frame').length
+      const frame = frameItem(toWorld(event.clientX, event.clientY), rank)
+      commit((d) => ({ ...d, items: [...d.items, frame] }))
+      setTool('select')
+      setSelection({ items: [frame.id], link: null })
+      return
+    }
+
     if (current === 'group') {
       // Teinte dédiée (en rotation) plutôt que la couleur du crayon.
       const used = docRef.current.items.filter((item) => item.type === 'group').length
@@ -2335,6 +2357,66 @@ export default function Whiteboard() {
     return () => el.removeEventListener('wheel', onWheel)
   }, [scheduleFrame])
 
+  /* ---------- cadres et présentation ---------- */
+
+  const flight = useRef(0)
+
+  /** Amène la vue à destination en douceur : la grille et les fils sont redessinés à chaque image. */
+  const flyTo = useCallback((target, duration = 480) => {
+    cancelAnimationFrame(flight.current)
+    const from = viewRef.current
+    const start = performance.now()
+
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / duration)
+      // Départ et arrivée adoucis : le mouvement n'a ni à-coup ni freinage brutal.
+      const eased = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2
+      setView({
+        x: from.x + (target.x - from.x) * eased,
+        y: from.y + (target.y - from.y) * eased,
+        scale: from.scale + (target.scale - from.scale) * eased,
+      })
+      if (t < 1) flight.current = requestAnimationFrame(step)
+    }
+    flight.current = requestAnimationFrame(step)
+  }, [])
+
+  const frames = useMemo(() => orderFrames(doc.items), [doc.items])
+  const framesRef = useRef(frames)
+  framesRef.current = frames
+
+  /** Montre une scène : la vue vient cadrer le rectangle, plein écran. */
+  const showFrame = useCallback(
+    (index) => {
+      const frame = framesRef.current[index]
+      if (!frame) return
+      setPresent(index)
+      setSelection({ items: [], link: null })
+      setEditingId(null)
+      flyTo(fitView(frame, { w: innerWidth, h: innerHeight }, 0))
+    },
+    [flyTo],
+  )
+
+  const leavePresent = useCallback(() => setPresent(null), [])
+
+  /** Centre la vue sur un bloc, sans changer le niveau de zoom. */
+  const goToItem = useCallback(
+    (id) => {
+      const item = docRef.current.items.find((candidate) => candidate.id === id)
+      if (!item) return
+      const { scale } = viewRef.current
+      flyTo({
+        scale,
+        x: innerWidth / 2 - (item.x + item.w / 2) * scale,
+        y: innerHeight / 2 - (item.y + item.h / 2) * scale,
+      })
+      setSelection({ items: [id], link: null })
+      setSearching(false)
+    },
+    [flyTo],
+  )
+
   /* ---------- clavier, glisser-déposer, presse-papiers ---------- */
 
   const isTyping = (target) =>
@@ -2369,6 +2451,11 @@ export default function Whiteboard() {
           duplicateSelection()
           return
         }
+        if (key === 'f') {
+          event.preventDefault()
+          setSearching((open) => !open)
+          return
+        }
         if (key === 'a') {
           event.preventDefault()
           selectItems(docRef.current.items.map((item) => item.id))
@@ -2387,6 +2474,20 @@ export default function Whiteboard() {
       }
       if (isTyping(event.target) || mod) return
 
+      // Pendant la présentation, le clavier ne sert plus qu'à passer d'une scène à l'autre.
+      if (present !== null) {
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown' || event.code === 'Space') {
+          event.preventDefault()
+          showFrame(Math.min(framesRef.current.length - 1, present + 1))
+        }
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+          event.preventDefault()
+          showFrame(Math.max(0, present - 1))
+        }
+        if (event.key === 'Escape') leavePresent()
+        return
+      }
+
       if (event.code === 'Space' && !event.repeat) {
         spaceDown.current = true
         setPanning(true)
@@ -2399,6 +2500,7 @@ export default function Whiteboard() {
         h: () => setTool('hand'),
         l: () => setTool('link'),
         g: () => setTool('group'),
+        f: () => setTool('frame'),
         s: () => chooseTool('shape'),
         m: () => chooseTool('marker'),
         i: () => chooseTool('picker'),
@@ -2422,6 +2524,7 @@ export default function Whiteboard() {
         return
       }
       if (event.key === 'Escape') {
+        setSearching(false)
         clearSelection()
         setEditingId(null)
         setPending(null)
@@ -2454,6 +2557,9 @@ export default function Whiteboard() {
     duplicateSelection,
     reorder,
     selectItems,
+    present,
+    showFrame,
+    leavePresent,
   ])
 
   useEffect(() => {
@@ -2512,7 +2618,7 @@ export default function Whiteboard() {
 
   const resetView = () => setView({ x: 0, y: 0, scale: 1 })
   const linking = tool === 'link'
-  const interactive = tool === 'select' || linking
+  const interactive = present === null && (tool === 'select' || linking)
   const selectedIds = selection.items
   const selectedItemId = selectedIds.length === 1 ? selectedIds[0] : null
   const selectedLinkId = selection.link
@@ -2543,8 +2649,12 @@ export default function Whiteboard() {
 
   // Les zones de groupe se dessinent derrière les blocs.
   const ordered = useMemo(() => {
-    const groups = doc.items.filter((item) => item.type === 'group')
-    return groups.length ? [...groups, ...doc.items.filter((item) => item.type !== 'group')] : doc.items
+    const behind = doc.items.filter((item) => item.type === 'frame' || item.type === 'group')
+    if (!behind.length) return doc.items
+    // Les cadres passent tout derrière, les zones de groupe juste après.
+    const frames = behind.filter((item) => item.type === 'frame')
+    const groups = behind.filter((item) => item.type === 'group')
+    return [...frames, ...groups, ...doc.items.filter((item) => !behind.includes(item))]
   }, [doc.items])
 
   const selectedGroup = useMemo(
@@ -2727,7 +2837,7 @@ export default function Whiteboard() {
   })
 
   return (
-    <div className="board">
+    <div className={`board ${present !== null ? 'is-presenting' : ''}`}>
       <div
         ref={containerRef}
         className={`board__surface ${dropping ? 'is-dropping' : ''}`}
@@ -2744,7 +2854,7 @@ export default function Whiteboard() {
         onDragLeave={() => setDropping(false)}
         onDrop={onDrop}
       >
-        <canvas ref={gridRef} className="board__canvas" />
+        <canvas ref={gridRef} className="board__canvas board__canvas--grid" />
 
         <Links
           links={doc.links}
@@ -2775,8 +2885,9 @@ export default function Whiteboard() {
               soloSelected={selectedItemId === item.id}
               editing={editingId === item.id}
               interactive={interactive}
-              draggable={tool === 'select' && !item.locked}
+              draggable={tool === 'select' && !item.locked && present === null}
               locked={Boolean(item.locked)}
+              rank={item.type === 'frame' ? frames.findIndex((f) => f.id === item.id) + 1 : 0}
               linkTarget={linking}
               tween={tween}
               toWorld={toWorld}
@@ -2985,6 +3096,7 @@ export default function Whiteboard() {
         tipProps={tipProps}
         selectedCount={selectedIds.length}
         selectedItem={selectedItem}
+        frameCount={frames.length}
         selectedShape={selectedShape}
         selectedGroup={selectedGroup}
         selectedText={selectedText}
@@ -3008,6 +3120,7 @@ export default function Whiteboard() {
           pickLinkStyle,
           toggleLock,
           straightenShape,
+          present: () => showFrame(0),
           toggleFill,
           toggleTextVariant,
           setSketchMode,
@@ -3062,6 +3175,20 @@ export default function Whiteboard() {
               y: viewport.h / 2 - point.y * prev.scale,
             }))
           }
+        />
+      )}
+
+      {searching && present === null && (
+        <Search items={doc.items} onGo={goToItem} onClose={() => setSearching(false)} />
+      )}
+
+      {present !== null && (
+        <Present
+          index={present}
+          total={frames.length}
+          onPrevious={() => showFrame(present - 1)}
+          onNext={() => showFrame(present + 1)}
+          onExit={leavePresent}
         />
       )}
 

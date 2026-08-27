@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef } from 'react'
+import FrameBlock from './FrameBlock.jsx'
 import GroupBlock from './GroupBlock.jsx'
 import MindNode from './MindNode.jsx'
 import ShapeBlock from './ShapeBlock.jsx'
@@ -28,6 +29,7 @@ function BoardItem({
   interactive,
   draggable,
   locked,
+  rank,
   linkTarget,
   tween,
   toWorld,
@@ -169,6 +171,8 @@ function BoardItem({
       )}
 
       {item.type === 'image' && <img src={item.src} alt={item.name} draggable={false} />}
+
+      {item.type === 'frame' && <FrameBlock item={item} rank={rank} />}
 
       {item.type === 'group' && <GroupBlock item={item} />}
 

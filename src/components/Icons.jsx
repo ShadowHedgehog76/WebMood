@@ -388,3 +388,17 @@ export const IconStraighten = (props) => (
     <path d="M6.5 4v3M5 5.5h3" />
   </Icon>
 )
+
+export const IconFrame = (props) => (
+  <Icon {...props}>
+    <rect x="3.5" y="6" width="17" height="12" rx="2" />
+    <path d="M3.5 9.5h17" />
+  </Icon>
+)
+
+export const IconSearch = (props) => (
+  <Icon {...props}>
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="m16 16 4 4" />
+  </Icon>
+)

@@ -1,0 +1,73 @@
+/* Palette de recherche : posée en haut, au-dessus du tableau. */
+.search {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  width: min(520px, calc(100vw - 48px));
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.18);
+  overflow: hidden;
+  animation: search-in 0.18s ease;
+}
+
+@keyframes search-in {
+  from { opacity: 0; transform: translate(-50%, -10px); }
+}
+
+.search__field {
+  width: 100%;
+  padding: 14px 18px;
+  border: none;
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+}
+
+.search__results {
+  max-height: 320px;
+  overflow-y: auto;
+  border-top: 1px solid rgb(0 0 0 / 0.07);
+}
+
+.search__empty {
+  margin: 0;
+  padding: 14px 18px;
+  color: #8a8a8e;
+  font-size: 14px;
+}
+
+.search__hit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 18px;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.search__hit.is-active {
+  background: #eef4ff;
+}
+
+.search__kind {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgb(28 28 30 / 0.07);
+  color: #6b6b70;
+  font-size: 12px;
+}
+
+.search__excerpt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}

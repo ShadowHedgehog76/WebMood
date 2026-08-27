@@ -1,0 +1,51 @@
+/* Cadre : un simple contour, et son nom posé au-dessus. Il reste derrière tout le reste. */
+.frame {
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgb(28 28 30 / 0.22);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.55);
+}
+
+.item--frame.is-selected .frame {
+  border-color: #3b82f6;
+}
+
+.frame__label {
+  position: absolute;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #1c1c1e;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  transform: scale(var(--inv));
+  transform-origin: bottom left;
+}
+
+.frame__label b {
+  display: grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 4px;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.18);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* En présentation, le contour s'efface et le fond devient franc : c'est la diapositive. */
+.board.is-presenting .frame {
+  border-color: transparent;
+  background: #fff;
+}
+
+.board.is-presenting .frame__label {
+  display: none;
+}

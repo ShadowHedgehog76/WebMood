@@ -1,0 +1,83 @@
+/* Barre de présentation : discrète en bas, elle s'efface tant qu'on ne la survole pas. */
+.present {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 14px;
+  background: rgb(28 28 30 / 0.88);
+  color: #fff;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.25);
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
+}
+
+.present:hover {
+  opacity: 1;
+}
+
+.present button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 9px;
+  background: rgb(255 255 255 / 0.1);
+  color: inherit;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.present button:hover:not(:disabled) {
+  background: rgb(255 255 255 / 0.22);
+}
+
+.present button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.present__count {
+  padding: 0 6px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.present__sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: rgb(255 255 255 / 0.2);
+}
+
+.present__exit {
+  font-size: 14px !important;
+}
+
+/* La grille fait partie du décor de travail : une scène se montre sur fond net. */
+.board.is-presenting .board__canvas--grid {
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+/* Tout ce qui sert à travailler disparaît le temps de la présentation. */
+.board.is-presenting .toolbar,
+.board.is-presenting .context-bar,
+.board.is-presenting .rail,
+.board.is-presenting .chat-rail,
+.board.is-presenting .minimap,
+.board.is-presenting .zoom,
+.board.is-presenting .status,
+.board.is-presenting .notice {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}

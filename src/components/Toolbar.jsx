@@ -16,6 +16,7 @@ import {
   IconDiamond,
   IconEraser,
   IconFill,
+  IconFrame,
   IconFreeform,
   IconGroup,
   IconHand,
@@ -32,6 +33,7 @@ import {
   IconTree,
   IconPen,
   IconPicker,
+  IconPlay,
   IconRedo,
   IconStrokeEraser,
   IconSketch,
@@ -85,6 +87,7 @@ export default function Toolbar({
   tipProps,
   selectedCount,
   selectedItem,
+  frameCount,
   selectedShape,
   selectedGroup,
   selectedText,
@@ -493,6 +496,13 @@ export default function Toolbar({
           <IconGroup />
         </button>
         <button
+          className={`tool ${tool === 'frame' ? 'is-active' : ''}`}
+          onClick={() => setTool('frame')}
+          {...tipProps('Cadre : une scène de la présentation', 'F')}
+        >
+          <IconFrame />
+        </button>
+        <button
           className={`tool ${tool === 'hand' ? 'is-active' : ''}`}
           onClick={() => setTool('hand')}
           {...tipProps('Main', 'H')}
@@ -531,6 +541,22 @@ export default function Toolbar({
           <IconSketch />
         </button>
       </div>
+
+      {/* Le bouton n'apparaît qu'une fois qu'il y a une scène à montrer. */}
+      {frameCount > 0 && (
+        <>
+          <span className="toolbar__sep" />
+          <div className="toolbar__group">
+            <button
+              className="tool"
+              onClick={actions.present}
+              {...tipProps(`Présenter (${frameCount} scène${frameCount > 1 ? 's' : ''})`)}
+            >
+              <IconPlay />
+            </button>
+          </div>
+        </>
+      )}
 
       <span className="toolbar__sep" />
 
