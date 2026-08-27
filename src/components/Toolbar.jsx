@@ -22,13 +22,16 @@ import {
   IconImage,
   IconLine,
   IconLink,
+  IconMarker,
   IconMindmap,
   IconNote,
   IconOutline,
   IconRadial,
   IconTree,
   IconPen,
+  IconPicker,
   IconRedo,
+  IconStrokeEraser,
   IconSketch,
   IconSquare,
   IconText,
@@ -68,6 +71,8 @@ export default function Toolbar({
   setMenu,
   color,
   size,
+  markerSize,
+  eraserMode,
   arrow,
   filled,
   textSizes,
@@ -327,7 +332,40 @@ export default function Toolbar({
       )
     }
 
-    if (tool === 'pen' || tool === 'eraser') {
+    if (tool === 'marker') {
+      return (
+        <>
+          {colorButton}
+          {separator}
+          {sizes([10, 20, 32, 48], markerSize, actions.pickMarkerSize, 'Surligneur', [6, 90])}
+        </>
+      )
+    }
+
+    if (tool === 'eraser') {
+      return (
+        <>
+          <button
+            className={`chip chip--icon ${eraserMode === 'pixel' ? 'is-active' : ''}`}
+            onClick={() => actions.setEraserMode('pixel')}
+            {...tipProps('Gomme classique')}
+          >
+            <IconEraser size={17} />
+          </button>
+          <button
+            className={`chip chip--icon ${eraserMode === 'stroke' ? 'is-active' : ''}`}
+            onClick={() => actions.setEraserMode('stroke')}
+            {...tipProps('Effacer le trait entier')}
+          >
+            <IconStrokeEraser size={17} />
+          </button>
+          {separator}
+          {sizes([2, 5, 10, 20], size, actions.pickSize, 'Épaisseur', [1, 60])}
+        </>
+      )
+    }
+
+    if (tool === 'pen') {
       return (
         <>
           {colorButton}
@@ -361,11 +399,25 @@ export default function Toolbar({
           <IconPen />
         </button>
         <button
+          className={`tool ${tool === 'marker' ? 'is-active' : ''}`}
+          onClick={() => setTool('marker')}
+          {...tipProps('Surligneur', 'M')}
+        >
+          <IconMarker />
+        </button>
+        <button
           className={`tool ${tool === 'eraser' ? 'is-active' : ''}`}
           onClick={() => setTool('eraser')}
           {...tipProps('Gomme', 'E')}
         >
           <IconEraser />
+        </button>
+        <button
+          className={`tool ${tool === 'picker' ? 'is-active' : ''}`}
+          onClick={() => setTool('picker')}
+          {...tipProps('Pipette : reprendre une couleur', 'I')}
+        >
+          <IconPicker />
         </button>
 
         <button

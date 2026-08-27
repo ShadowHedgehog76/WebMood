@@ -36,6 +36,29 @@ export const IconPen = (props) => (
   </Icon>
 )
 
+export const IconMarker = (props) => (
+  <Icon {...props}>
+    <path d="M8.5 16.5 4 18l1.5-4.5 8.6-8.6a2.4 2.4 0 0 1 3.4 3.4Z" />
+    <path d="M13 6.6 17.4 11" />
+    <path d="M3.5 21h9" strokeWidth="2.4" />
+  </Icon>
+)
+
+export const IconPicker = (props) => (
+  <Icon {...props}>
+    <path d="m15.5 4.5 4 4" />
+    <path d="M17.8 6.8 9 15.6l-.6 3 3-.6 8.8-8.8a1.9 1.9 0 0 0 0-2.7l-.7-.7a1.9 1.9 0 0 0-2.7 0Z" />
+    <path d="m7.5 17-3.2 3.2" />
+  </Icon>
+)
+
+export const IconStrokeEraser = (props) => (
+  <Icon {...props}>
+    <path d="M4 18.5c4-9 8-11 11-8s-3 6.5-5 3.5 3-7.5 7-3.5" />
+    <path d="M14 20.5h7" strokeWidth="2.4" />
+  </Icon>
+)
+
 export const IconEraser = (props) => (
   <Icon {...props}>
     <path d="M11 20h9" />

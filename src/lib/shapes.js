@@ -86,3 +86,23 @@ export function freeShape({ id, points, color, strokeWidth = 3, filled = false }
     h: Math.round(h),
   }
 }
+
+const ANGLE_STEP = Math.PI / 12 // 15°
+
+/**
+ * Tracé contraint (touche ⇧) : carré ou cercle parfait pour les formes fermées,
+ * angle par pas de 15° pour les lignes et les flèches.
+ */
+export function constrain(from, to, kind) {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+
+  if (kind === 'line' || kind === 'arrow' || kind === 'arc') {
+    const length = Math.hypot(dx, dy)
+    const angle = Math.round(Math.atan2(dy, dx) / ANGLE_STEP) * ANGLE_STEP
+    return { x: from.x + Math.cos(angle) * length, y: from.y + Math.sin(angle) * length }
+  }
+
+  const side = Math.max(Math.abs(dx), Math.abs(dy))
+  return { x: from.x + Math.sign(dx || 1) * side, y: from.y + Math.sign(dy || 1) * side }
+}

@@ -34,6 +34,7 @@ import {
   CLOSED,
   DEFAULT_SHAPE_SIZE,
   DRAWN,
+  constrain,
   freeShape,
   isTooSmall,
   normalizeRect,
@@ -161,6 +162,8 @@ export default function Whiteboard() {
   const [tool, setTool] = useState('select')
   const [color, setColor] = useState(QUICK_COLORS[0])
   const [size, setSize] = useState(SIZES[1])
+  const [markerSize, setMarkerSize] = useState(20)
+  const [eraserMode, setEraserMode] = useState('pixel') // 'pixel' ou 'stroke'
   const [arrow, setArrow] = useState('end')
   const [shape, setShape] = useState('rect')
   const [filled, setFilled] = useState(false)
@@ -207,6 +210,11 @@ export default function Whiteboard() {
   const toolRef = useRef(tool)
   const colorRef = useRef(color)
   const sizeRef = useRef(size)
+  const markerRef = useRef(markerSize)
+  const eraserModeRef = useRef(eraserMode)
+  const previousTool = useRef('select')
+  const erasing = useRef(false)
+  const erasingRef = useRef(false)
   const arrowRef = useRef(arrow)
   const shapeRef = useRef(shape)
   const filledRef = useRef(filled)
@@ -219,6 +227,8 @@ export default function Whiteboard() {
   toolRef.current = tool
   colorRef.current = color
   sizeRef.current = size
+  markerRef.current = markerSize
+  eraserModeRef.current = eraserMode
   arrowRef.current = arrow
   shapeRef.current = shape
   filledRef.current = filled
@@ -243,9 +253,12 @@ export default function Whiteboard() {
 
   /** Prendre un outil de tracé, c'est vouloir dessiner : on relâche la sélection. */
   const chooseTool = useCallback((next) => {
-    setTool(next)
+    setTool((current) => {
+      previousTool.current = current
+      return next
+    })
     setMenu(null)
-    if (next === 'pen' || next === 'eraser' || next === 'shape') {
+    if (['pen', 'eraser', 'shape', 'marker'].includes(next)) {
       setSelection({ items: [], link: null })
     }
   }, [])
@@ -1005,7 +1018,12 @@ export default function Whiteboard() {
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.lineWidth = Math.max(0.5, stroke.size * scale)
-    if (stroke.tool === 'eraser') {
+    if (stroke.tool === 'marker') {
+      // Surligneur : translucide et multiplié, comme un feutre sur du papier.
+      ctx.globalAlpha = 0.35
+      ctx.globalCompositeOperation = 'multiply'
+      ctx.strokeStyle = stroke.color
+    } else if (stroke.tool === 'eraser') {
       ctx.globalCompositeOperation = 'destination-out'
       ctx.strokeStyle = 'rgba(0,0,0,1)'
     } else {
@@ -1053,7 +1071,12 @@ export default function Whiteboard() {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1)
 
-    for (const stroke of doc.strokes) {
+    // Le surligneur passe dessous : on peint d'abord les feutres, puis l'encre.
+    const ordered = [
+      ...doc.strokes.filter((stroke) => stroke.tool === 'marker'),
+      ...doc.strokes.filter((stroke) => stroke.tool !== 'marker'),
+    ]
+    for (const stroke of ordered) {
       const box = boundsOf(stroke)
       const margin = stroke.size * scale
       if (
@@ -1213,6 +1236,67 @@ export default function Whiteboard() {
         if (!recordHistory) lastLocalEdit.current = Date.now()
         return { ...d, items }
       }, recordHistory)
+    },
+    [write],
+  )
+
+  /**
+   * Pipette : reprend la couleur de ce qui se trouve sous le curseur — bloc, fil, ou
+   * trait — puis rend la main à l'outil précédent.
+   */
+  const pickColorAt = useCallback((point) => {
+    const items = docRef.current.items
+    const found = [...items].reverse().find(
+      (item) =>
+        item.color &&
+        point.x >= item.x &&
+        point.x <= item.x + item.w &&
+        point.y >= item.y &&
+        point.y <= item.y + item.h,
+    )
+    const reach = 12 / viewRef.current.scale
+    const stroke = found
+      ? null
+      : docRef.current.strokes.find((entry) => strokeHit(entry, point, Math.max(entry.size, 8) / viewRef.current.scale + reach))
+
+    const picked = found?.color ?? stroke?.color
+    if (picked) setColor(picked)
+    setTool(previousTool.current === 'picker' ? 'select' : previousTool.current)
+  }, [])
+
+  /**
+   * Le trait touche-t-il ce point ? On mesure la distance aux segments et pas seulement
+   * aux points enregistrés : entre deux points échantillonnés, il peut y avoir 40 px.
+   */
+  const strokeHit = (stroke, point, reach) => {
+    const points = stroke.points
+    if (points.length === 1) return Math.hypot(points[0].x - point.x, points[0].y - point.y) <= reach
+
+    for (let i = 1; i < points.length; i++) {
+      const a = points[i - 1]
+      const b = points[i]
+      const dx = b.x - a.x
+      const dy = b.y - a.y
+      const length = dx * dx + dy * dy
+      const t = length ? Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / length)) : 0
+      const nearest = { x: a.x + dx * t, y: a.y + dy * t }
+      if (Math.hypot(nearest.x - point.x, nearest.y - point.y) <= reach) return true
+    }
+    return false
+  }
+
+  /** Gomme de trait : efface les traits entiers au passage, en une seule annulation. */
+  const eraseStrokes = useCallback(
+    (point) => {
+      const reach = Math.max(8, sizeRef.current) / viewRef.current.scale
+      const doomed = docRef.current.strokes.filter((stroke) => strokeHit(stroke, point, reach))
+      if (!doomed.length) return
+
+      const ids = new Set(doomed.map((stroke) => stroke.id))
+      const first = !erasing.current
+      erasing.current = true
+      write((d) => ({ ...d, strokes: d.strokes.filter((stroke) => !ids.has(stroke.id)) }), first)
+      painters.current.paintStrokes()
     },
     [write],
   )
@@ -1910,7 +1994,7 @@ export default function Whiteboard() {
         kind === 'free'
           ? { free: true, points: [at] }
           : kind === 'arc'
-            ? { arc: true, from: snapEnd(at), to: at }
+            ? { arc: true, from: snapEnd(at), anchor: at, to: at }
             : { from: at, to: at }
       setDraft({ ...draftRef.current })
       return
@@ -1928,11 +2012,23 @@ export default function Whiteboard() {
     }
     if (event.button !== 0) return
 
+    if (current === 'eraser' && eraserModeRef.current === 'stroke') {
+      erasing.current = false
+      eraseStrokes(toWorld(event.clientX, event.clientY))
+      erasingRef.current = true
+      return
+    }
+
+    if (current === 'picker') {
+      pickColorAt(toWorld(event.clientX, event.clientY))
+      return
+    }
+
     liveStroke.current = {
       id: newId(),
       tool: current,
       color: colorRef.current,
-      size: sizeRef.current,
+      size: current === 'marker' ? markerRef.current : sizeRef.current,
       points: [toWorld(event.clientX, event.clientY)],
     }
     paintStrokes()
@@ -1970,10 +2066,13 @@ export default function Whiteboard() {
       move.pan = pan.current
       move.x = event.clientX
       move.y = event.clientY
+    } else if (erasingRef.current) {
+      eraseStrokes(toWorld(event.clientX, event.clientY))
     } else if (bandRef.current) {
       move.band = toWorld(event.clientX, event.clientY)
     } else if (draftRef.current) {
       move.draft = toWorld(event.clientX, event.clientY)
+      move.shift = event.shiftKey
     } else if (liveStroke.current) {
       const coalesced = event.nativeEvent.getCoalescedEvents?.()
       const events = coalesced?.length ? coalesced : [event.nativeEvent]
@@ -1990,6 +2089,18 @@ export default function Whiteboard() {
 
   const endPointer = (event) => {
     if (event.pointerType === 'pen') penDown.current = false
+
+    // Une image encore en attente conclurait le geste sur des coordonnées périmées :
+    // un tracé rapide se retrouverait réduit à un simple clic.
+    if (frame.current) {
+      cancelAnimationFrame(frame.current)
+      flushMove()
+    }
+
+    if (erasingRef.current) {
+      erasingRef.current = false
+      erasing.current = false
+    }
 
     if (event.pointerType === 'touch') {
       touches.current.delete(event.pointerId)
@@ -2133,7 +2244,10 @@ export default function Whiteboard() {
     if (move.draft && draftRef.current) {
       const current = draftRef.current
       if (current.arc) {
-        draftRef.current = { ...current, to: move.draft }
+        const target = move.shift
+          ? constrain(current.anchor ?? move.draft, move.draft, 'arc')
+          : move.draft
+        draftRef.current = { ...current, to: target }
         setDraft({ ...draftRef.current })
       } else if (current.free) {
         const last = current.points.at(-1)
@@ -2143,7 +2257,8 @@ export default function Whiteboard() {
           setDraft({ ...current, points: [...current.points] })
         }
       } else {
-        draftRef.current = { ...current, to: move.draft }
+        const target = move.shift ? constrain(current.from, move.draft, shapeRef.current) : move.draft
+        draftRef.current = { ...current, to: target }
         setDraft({ ...draftRef.current })
       }
     }
@@ -2274,6 +2389,8 @@ export default function Whiteboard() {
         l: () => setTool('link'),
         g: () => setTool('group'),
         s: () => chooseTool('shape'),
+        m: () => chooseTool('marker'),
+        i: () => chooseTool('picker'),
         t: () => addText('note'),
       }
       if (shortcuts[event.key]) {
@@ -2377,6 +2494,10 @@ export default function Whiteboard() {
   }
 
   /* ---------- rendu ---------- */
+
+  if (import.meta.env.DEV) {
+    window.__debug = { tool, eraserMode, erasing: erasingRef, draft: draftRef }
+  }
 
   const resetView = () => setView({ x: 0, y: 0, scale: 1 })
   const linking = tool === 'link'
@@ -2807,6 +2928,8 @@ export default function Whiteboard() {
         setMenu={setMenu}
         color={color}
         size={size}
+        markerSize={markerSize}
+        eraserMode={eraserMode}
         arrow={arrow}
         filled={filled}
         textSizes={TEXT_SIZES}
@@ -2829,6 +2952,8 @@ export default function Whiteboard() {
           pickColor,
           pickShape,
           pickSize,
+          pickMarkerSize: setMarkerSize,
+          setEraserMode,
           pickTextSize,
           pickArrow,
           toggleFill,
