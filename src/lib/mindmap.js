@@ -89,7 +89,7 @@ function layoutMindmap(nodes, root) {
   const children = childrenOf(nodes, root.id)
   placeSide(nodes, root, children.filter((child) => child.side !== 'left'), 'right', moves)
   placeSide(nodes, root, children.filter((child) => child.side === 'left'), 'left', moves)
-  return moves
+  return movesx
 }
 
 /** Largeur occupée par un nœud et sa descendance, en disposition verticale. */

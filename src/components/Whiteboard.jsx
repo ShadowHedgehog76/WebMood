@@ -15,11 +15,13 @@ import Search from './Search.jsx'
 import Laser from './Laser.jsx'
 import Timer from './Timer.jsx'
 import Present from './Present.jsx'
+import Settings from './Settings.jsx'
 import { decodeBoard } from '../lib/share.js'
 import { makeCode, openSession } from '../lib/session.js'
 import { createShakeDetector } from '../lib/shake.js'
 import { caretPoint } from '../lib/caret.js'
 import { snapPosition } from '../lib/snap.js'
+import { loadSettings, saveSettings } from '../lib/settings.js'
 import { IconMinus, IconPlus } from './Icons.jsx'
 import Links from './Links.jsx'
 import {
@@ -176,6 +178,10 @@ export default function Whiteboard() {
   const [eraserMode, setEraserMode] = useState('pixel') // 'pixel' ou 'stroke'
   const [linkStyle, setLinkStyle] = useState('curve') // 'curve', 'elbow' ou 'straight'
   const [dash, setDash] = useState('solid') // type de trait : plein, tirets, points…
+  const [settings, setSettings] = useState(loadSettings)
+  const [showSettings, setShowSettings] = useState(false)
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
   const [searching, setSearching] = useState(false)
   const [present, setPresent] = useState(null) // index de la scène montrée, ou rien
   const [timer, setTimer] = useState(null) // { endsAt } en marche, { left } en pause
@@ -1041,7 +1047,8 @@ export default function Whiteboard() {
     while (world * scale > 96) world /= 2
 
     const step = Math.round(world * scale * dpr)
-    if (step < 6) return
+    // Grille masquée dans les réglages : le fond reste blanc, le tableau reste infini.
+    if (step < 6 || !settingsRef.current.grid) return
 
     const radius = Math.round(Math.min(1.6, Math.max(0.7, scale)) * dpr * 10) / 10
     const pattern = ctx.createPattern(gridTileFor(gridTile, step, radius), 'repeat')
@@ -1174,7 +1181,8 @@ export default function Whiteboard() {
   useEffect(() => {
     paintGrid()
     paintStrokes()
-  }, [view, paintGrid, paintStrokes])
+    // `settings.grid` : la grille doit se rallumer sans attendre un déplacement de la vue.
+  }, [view, settings.grid, paintGrid, paintStrokes])
 
   /* ---------- coordonnées ---------- */
 
@@ -1359,7 +1367,8 @@ export default function Whiteboard() {
   /** Aimante un bloc déplacé seul aux bords et centres des autres. */
   const snap = useCallback((id, x, y) => {
     const item = docRef.current.items.find((candidate) => candidate.id === id)
-    if (!item || selectionRef.current.items.length > 1) {
+    // Aimantation coupée dans les réglages : le bloc va exactement où on le pose.
+    if (!settingsRef.current.snap || !item || selectionRef.current.items.length > 1) {
       setGuides((current) => (current.length ? [] : current))
       return { x, y }
     }
@@ -2837,6 +2846,15 @@ export default function Whiteboard() {
     window.__debug = { tool, eraserMode, erasing: erasingRef, draft: draftRef }
   }
 
+  /** Un réglage change : il est retenu pour les prochaines visites. */
+  const changeSetting = (key, value) => {
+    setSettings((current) => {
+      const next = { ...current, [key]: value }
+      saveSettings(next)
+      return next
+    })
+  }
+
   const resetView = () => setView({ x: 0, y: 0, scale: 1 })
   const linking = tool === 'link'
   const interactive = present === null && (tool === 'select' || linking)
@@ -3305,6 +3323,7 @@ export default function Whiteboard() {
         onImportJson={importJson}
         onShare={() => setShare(true)}
         onTour={() => setTourStep(0)}
+        onSettings={() => setShowSettings(true)}
         live={Boolean(session)}
         hasSelection={selectedIds.length > 0}
       />
@@ -3446,6 +3465,13 @@ export default function Whiteboard() {
           onExit={leavePresent}
         />
       )}
+
+      <Settings
+        open={showSettings}
+        settings={settings}
+        onChange={changeSetting}
+        onClose={() => setShowSettings(false)}
+      />
 
       <p className={`status status--${status}`}>{statusLabel}</p>
 
