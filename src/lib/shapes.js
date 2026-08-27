@@ -1,5 +1,7 @@
 /** Formes vectorielles posées sur le tableau. */
 
+import { nodesOf, simplifyPoints, smoothNodes } from './paths.js'
+
 export const SHAPES = [
   { key: 'rect', label: 'Rectangle' },
   { key: 'ellipse', label: 'Ellipse' },
@@ -73,6 +75,7 @@ export function shapeItem({
   }
 }
 
+const FREE_TOLERANCE = 0.012 // en proportion de la boîte : sous ce seuil, un point n'apporte rien
 const CLOSE_RATIO = 0.12 // fin de tracé proche du départ : la forme se referme
 
 /**
@@ -94,6 +97,13 @@ export function freeShape({ id, points, color, strokeWidth = 3, filled = false, 
   const closed =
     Math.hypot(last.x - first.x, last.y - first.y) < Math.hypot(w, h) * CLOSE_RATIO
 
+  // Le tracé est dégrossi puis lissé : il naît directement chemin éditable, avec une
+  // poignée par vrai changement de direction plutôt qu'une par point échantillonné.
+  const unit = points.map((point) => ({
+    x: Math.round(((point.x - minX) / w) * 1000) / 1000,
+    y: Math.round(((point.y - minY) / h) * 1000) / 1000,
+  }))
+
   return {
     id,
     type: 'shape',
@@ -103,10 +113,7 @@ export function freeShape({ id, points, color, strokeWidth = 3, filled = false, 
     ...(dash && dash !== 'solid' ? { dash } : null),
     filled: filled && closed,
     closed,
-    points: points.map((point) => ({
-      x: Math.round(((point.x - minX) / w) * 1000) / 1000,
-      y: Math.round(((point.y - minY) / h) * 1000) / 1000,
-    })),
+    nodes: smoothNodes(simplifyPoints(unit, FREE_TOLERANCE), closed),
     x: Math.round(minX),
     y: Math.round(minY),
     w: Math.round(w),
@@ -136,34 +143,6 @@ export function constrain(from, to, kind) {
 
 /* ---------- redressement d'un tracé à main levée ---------- */
 
-/** Distance d'un point au segment [a, b]. */
-function distanceToSegment(point, a, b) {
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  const length = dx * dx + dy * dy
-  const t = length ? Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / length)) : 0
-  return Math.hypot(a.x + dx * t - point.x, a.y + dy * t - point.y)
-}
-
-/** Ramer–Douglas–Peucker : ne garde que les points qui font vraiment l'angle. */
-function simplify(points, tolerance) {
-  if (points.length < 3) return points
-  let worst = 0
-  let index = 0
-  for (let i = 1; i < points.length - 1; i++) {
-    const distance = distanceToSegment(points[i], points[0], points.at(-1))
-    if (distance > worst) {
-      worst = distance
-      index = i
-    }
-  }
-  if (worst <= tolerance) return [points[0], points.at(-1)]
-  return [
-    ...simplify(points.slice(0, index + 1), tolerance),
-    ...simplify(points.slice(index), tolerance).slice(1),
-  ]
-}
-
 /** Aire d'un polygone (formule du lacet), en valeur absolue. */
 function polygonArea(points) {
   let sum = 0
@@ -192,27 +171,27 @@ const STRAIGHTEN_TOLERANCE = 0.09
  * contour arrondi couvre environ π/4 de sa boîte, c'est une ellipse.
  */
 export function straighten(shape) {
-  const points = shape.points
-  if (!points || points.length < 2) return null
+  const points = nodesOf(shape).map((entry) => ({ x: entry.x, y: entry.y }))
+  if (points.length < 2) return null
 
-  const corners = simplify(points, STRAIGHTEN_TOLERANCE)
+  const corners = simplifyPoints(points, STRAIGHTEN_TOLERANCE)
 
   if (!shape.closed) {
     // Deux sommets seulement : le tracé est droit, il devient une ligne.
     if (corners.length > 2) return null
-    return { kind: 'line', ends: { a: points[0], b: points.at(-1) }, points: null, closed: null }
+    return { kind: 'line', ends: { a: points[0], b: points.at(-1) }, nodes: null, points: null, closed: null }
   }
 
   // Le retour au point de départ compte deux fois dans la liste des sommets.
   const outline = corners.slice(0, -1)
   const ratio = polygonArea(outline)
 
-  if (outline.length === 3) return { kind: 'triangle', points: null, closed: null }
+  if (outline.length === 3) return { kind: 'triangle', nodes: null, points: null, closed: null }
 
   if (outline.length === 4) {
     const kind = outline.every((point) => nearCorner(point, 0.25)) ? 'rect' : 'diamond'
-    return { kind, points: null, closed: null }
+    return { kind, nodes: null, points: null, closed: null }
   }
 
-  return { kind: ratio > 0.88 ? 'rect' : 'ellipse', points: null, closed: null }
+  return { kind: ratio > 0.88 ? 'rect' : 'ellipse', nodes: null, points: null, closed: null }
 }

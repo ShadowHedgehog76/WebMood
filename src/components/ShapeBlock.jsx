@@ -1,22 +1,33 @@
 import { CLOSED } from '../lib/shapes.js'
 import { DOUBLE_SPREAD, dashArray, isDouble } from '../lib/dashes.js'
+import { isClosed, nodesOf, pathData } from '../lib/paths.js'
+
 import './ShapeBlock.css'
 
 const HEAD = 14
 
 /**
- * Rendu SVG d'une forme dans la boîte de l'élément. Les coordonnées suivent la taille
- * réelle du bloc : le trait garde donc son épaisseur quel que soit le redimensionnement.
+ * Rendu d'une forme. Rectangle, ellipse ou tracé à main levée, c'est toujours le même
+ * chemin de nœuds : les anciennes formes fabriquent les leurs à la lecture. Les
+ * coordonnées suivent la taille réelle du bloc, le trait garde donc son épaisseur.
  */
 export default function ShapeBlock({ item }) {
   const stroke = Math.max(1, item.strokeWidth ?? 3)
   const pad = stroke / 2 + 1
   const w = Math.max(1, item.w)
   const h = Math.max(1, item.h)
-  const right = w - pad
-  const bottom = h - pad
-  const filled = item.filled && CLOSED.has(item.kind)
+  const filled = item.filled && (item.nodes ? isClosed(item) : CLOSED.has(item.kind))
   const double = isDouble(item.dash)
+
+  const nodes = nodesOf(item)
+  if (nodes.length < 2) return null
+
+  // Les nœuds sont rangés en proportions : ils prennent ici la taille du bloc.
+  const project = (point) => ({
+    x: pad + point.x * Math.max(0, w - pad * 2),
+    y: pad + point.y * Math.max(0, h - pad * 2),
+  })
+  const d = pathData(nodes, isClosed(item), project)
 
   const common = {
     stroke: item.color,
@@ -26,57 +37,10 @@ export default function ShapeBlock({ item }) {
     strokeLinecap: 'round',
   }
 
-  // Sans repères enregistrés, on garde le tracé historique : bas-gauche vers haut-droite.
-  const ends = item.ends ?? { a: { x: 0, y: 1 }, b: { x: 1, y: 0 } }
-  const at = (point) => ({
-    x: pad + point.x * Math.max(0, w - pad * 2),
-    y: pad + point.y * Math.max(0, h - pad * 2),
-  })
-  const a = at(ends.a)
-  const b = at(ends.b)
+  const outline = (extra) => <path d={d} {...common} {...extra} />
 
-  /** Le contour de la forme, avec les réglages de trait qu'on veut lui donner. */
-  const outline = (extra) => {
-    const props = { ...common, ...extra }
-    switch (item.kind) {
-      case 'rect':
-        return (
-          <rect
-            x={pad}
-            y={pad}
-            width={Math.max(0, right - pad)}
-            height={Math.max(0, bottom - pad)}
-            rx={Math.min(14, w / 6, h / 6)}
-            {...props}
-          />
-        )
-      case 'ellipse':
-        return (
-          <ellipse
-            cx={w / 2}
-            cy={h / 2}
-            rx={Math.max(0, w / 2 - pad)}
-            ry={Math.max(0, h / 2 - pad)}
-            {...props}
-          />
-        )
-      case 'triangle':
-        return <path d={`M${w / 2} ${pad} L${right} ${bottom} L${pad} ${bottom} Z`} {...props} />
-      case 'diamond':
-        return (
-          <path
-            d={`M${w / 2} ${pad} L${right} ${h / 2} L${w / 2} ${bottom} L${pad} ${h / 2} Z`}
-            {...props}
-          />
-        )
-      case 'free':
-        return item.points?.length > 1 ? (
-          <path d={freePath(item.points, pad, w - pad * 2, h - pad * 2, item.closed)} {...props} />
-        ) : null
-      default:
-        return <path d={`M${a.x} ${a.y} L${b.x} ${b.y}`} {...props} />
-    }
-  }
+  const a = project(nodes[0])
+  const b = project(nodes.at(-1))
 
   return (
     <svg className="shape" width="100%" height="100%" viewBox={`0 0 ${w} ${h}`}>
@@ -113,14 +77,6 @@ export default function ShapeBlock({ item }) {
       )}
     </svg>
   )
-}
-
-/** Chemin d'une forme à main levée : les proportions reprennent la taille du bloc. */
-function freePath(points, pad, width, height, closed) {
-  const at = (point) => `${pad + point.x * width} ${pad + point.y * height}`
-  const path = [`M${at(points[0])}`, ...points.slice(1).map((point) => `L${at(point)}`)]
-  if (closed) path.push('Z')
-  return path.join(' ')
 }
 
 function arrowHead(x1, y1, x2, y2, size) {

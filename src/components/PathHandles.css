@@ -1,0 +1,20 @@
+/* Repère au milieu d'un segment : discret, il se révèle au survol. */
+.path-add {
+  position: absolute;
+  width: calc(10px * var(--inv, 1));
+  height: calc(10px * var(--inv, 1));
+  margin-left: calc(-5px * var(--inv, 1));
+  margin-top: calc(-5px * var(--inv, 1));
+  border-radius: 50%;
+  border: calc(1.5px * var(--inv, 1)) solid #3b82f6;
+  background: #fff;
+  opacity: 0.45;
+  cursor: copy;
+  pointer-events: auto;
+  transition: opacity var(--fast) ease, transform var(--fast) var(--ease-spring);
+}
+
+.path-add:hover {
+  opacity: 1;
+  transform: scale(1.35);
+}

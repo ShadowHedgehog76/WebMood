@@ -100,6 +100,38 @@ export function smoothNodes(points, closed = false) {
   })
 }
 
+/** Distance d'un point au segment [a, b]. */
+function distanceToSegment(point, a, b) {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const length = dx * dx + dy * dy
+  const t = length ? Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / length)) : 0
+  return Math.hypot(a.x + dx * t - point.x, a.y + dy * t - point.y)
+}
+
+/**
+ * Ramer–Douglas–Peucker : ne garde que les points qui font vraiment l'angle. Un tracé
+ * à main levée en compte des centaines ; sans ce dégrossissage, il porterait autant de
+ * poignées et deviendrait impossible à reprendre.
+ */
+export function simplifyPoints(points, tolerance) {
+  if (points.length < 3) return points
+  let worst = 0
+  let index = 0
+  for (let i = 1; i < points.length - 1; i++) {
+    const distance = distanceToSegment(points[i], points[0], points.at(-1))
+    if (distance > worst) {
+      worst = distance
+      index = i
+    }
+  }
+  if (worst <= tolerance) return [points[0], points.at(-1)]
+  return [
+    ...simplifyPoints(points.slice(0, index + 1), tolerance),
+    ...simplifyPoints(points.slice(index), tolerance).slice(1),
+  ]
+}
+
 /** Tangente effective d'un nœud : sans tangente enregistrée, elle est sur le point. */
 export const outOf = (point) => point.out ?? { x: point.x, y: point.y }
 export const inOf = (point) => point.in ?? { x: point.x, y: point.y }
@@ -203,4 +235,109 @@ export function boundsOfNodes(nodes) {
     maxX: Math.max(...xs),
     maxY: Math.max(...ys),
   }
+}
+
+/**
+ * Passage entre les proportions d'un chemin (0 → 1) et les coordonnées du tableau.
+ * Le rembourrage est celui du rendu : les poignées tombent exactement sur le trait.
+ */
+export function projector(item) {
+  const pad = Math.max(1, item.strokeWidth ?? 3) / 2 + 1
+  const w = Math.max(0, Math.max(1, item.w) - pad * 2)
+  const h = Math.max(0, Math.max(1, item.h) - pad * 2)
+  return {
+    toBoard: (point) => ({ x: item.x + pad + point.x * w, y: item.y + pad + point.y * h }),
+    toUnit: (point) => ({
+      x: w ? (point.x - item.x - pad) / w : 0,
+      y: h ? (point.y - item.y - pad) / h : 0,
+    }),
+  }
+}
+
+const MIN_BOX = 8
+
+/**
+ * Un nœud déplacé sort de la boîte du bloc. On recadre : la boîte épouse à nouveau le
+ * chemin, et les proportions sont recalculées pour que rien ne bouge à l'écran.
+ */
+export function normalizePath(item, nodes) {
+  const { toBoard } = projector(item)
+  const board = nodes.map((entry) => ({
+    ...entry,
+    ...toBoard(entry),
+    in: entry.in ? toBoard(entry.in) : null,
+    out: entry.out ? toBoard(entry.out) : null,
+  }))
+
+  const bounds = boundsOfNodes(board)
+  const pad = Math.max(1, item.strokeWidth ?? 3) / 2 + 1
+  const width = Math.max(MIN_BOX, bounds.maxX - bounds.minX)
+  const height = Math.max(MIN_BOX, bounds.maxY - bounds.minY)
+
+  const unit = (point) => ({
+    x: (point.x - bounds.minX) / width,
+    y: (point.y - bounds.minY) / height,
+  })
+
+  return {
+    nodes: board.map((entry) => ({
+      ...unit(entry),
+      in: entry.in ? unit(entry.in) : null,
+      out: entry.out ? unit(entry.out) : null,
+    })),
+    x: Math.round(bounds.minX - pad),
+    y: Math.round(bounds.minY - pad),
+    w: Math.round(width + pad * 2),
+    h: Math.round(height + pad * 2),
+  }
+}
+
+/** Le nœud est-il lisse ? Ses deux tangentes sont alors dans le prolongement l'une de l'autre. */
+export function isSmooth(entry) {
+  if (!entry.in || !entry.out) return false
+  const a = { x: entry.x - entry.in.x, y: entry.y - entry.in.y }
+  const b = { x: entry.out.x - entry.x, y: entry.out.y - entry.y }
+  const la = Math.hypot(a.x, a.y)
+  const lb = Math.hypot(b.x, b.y)
+  if (!la || !lb) return false
+  // Produit vectoriel presque nul et même sens : les deux tangentes sont alignées.
+  return Math.abs(a.x * b.y - a.y * b.x) / (la * lb) < 0.08 && a.x * b.x + a.y * b.y > 0
+}
+
+/**
+ * Déplace une poignée. `key` vaut `point` pour le nœud lui-même, `in` ou `out` pour une
+ * tangente. Un nœud lisse garde ses deux tangentes alignées, sauf si on le brise.
+ */
+export function moveHandle(nodes, index, key, target, breakSmooth = false) {
+  const entry = nodes[index]
+  const next = nodes.map((candidate) => ({ ...candidate }))
+
+  if (key === 'point') {
+    const dx = target.x - entry.x
+    const dy = target.y - entry.y
+    next[index] = {
+      x: target.x,
+      y: target.y,
+      in: entry.in ? { x: entry.in.x + dx, y: entry.in.y + dy } : null,
+      out: entry.out ? { x: entry.out.x + dx, y: entry.out.y + dy } : null,
+    }
+    return next
+  }
+
+  const smooth = !breakSmooth && isSmooth(entry)
+  const other = key === 'in' ? 'out' : 'in'
+  next[index] = { ...entry, [key]: target }
+
+  if (smooth && entry[other]) {
+    const length = Math.hypot(entry[other].x - entry.x, entry[other].y - entry.y)
+    const dx = entry.x - target.x
+    const dy = entry.y - target.y
+    const reach = Math.hypot(dx, dy) || 1
+    next[index][other] = {
+      x: entry.x + (dx / reach) * length,
+      y: entry.y + (dy / reach) * length,
+    }
+  }
+
+  return next
 }

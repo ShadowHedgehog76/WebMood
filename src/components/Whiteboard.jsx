@@ -10,6 +10,7 @@ import ChatRail from './ChatRail.jsx'
 import QuickChat from './QuickChat.jsx'
 import Pings from './Pings.jsx'
 import ArcHandles from './ArcHandles.jsx'
+import PathHandles from './PathHandles.jsx'
 import Tour, { STEPS } from './Tour.jsx'
 import Search from './Search.jsx'
 import Laser from './Laser.jsx'
@@ -20,6 +21,14 @@ import { makeCode, openSession } from '../lib/session.js'
 import { createShakeDetector } from '../lib/shake.js'
 import { caretPoint } from '../lib/caret.js'
 import { snapPosition } from '../lib/snap.js'
+import {
+  isClosed,
+  moveHandle,
+  nodesOf,
+  normalizePath,
+  removeNode,
+  splitSegment,
+} from '../lib/paths.js'
 import { loadSettings, saveSettings } from '../lib/settings.js'
 import { IconMinus, IconPlus } from './Icons.jsx'
 import Links from './Links.jsx'
@@ -2460,6 +2469,78 @@ export default function Whiteboard() {
     return () => el.removeEventListener('wheel', onWheel)
   }, [scheduleFrame])
 
+  /* ---------- chemins éditables ---------- */
+
+  /**
+   * Les nœuds d'une forme, écrits dans le bloc. Les formes d'avant n'en portaient pas :
+   * on les fabrique au premier geste, en gardant leur genre — un rectangle reste un
+   * rectangle, il a seulement gagné ses poignées.
+   */
+  const writeNodes = useCallback(
+    (id, nodes, recordHistory) => {
+      write((d) => ({
+        ...d,
+        items: d.items.map((item) =>
+          item.id === id ? { ...item, nodes, closed: isClosed(item) } : item,
+        ),
+      }), recordHistory)
+    },
+    [write],
+  )
+
+  /** Poignée déplacée : en continu, sans entrée d'historique. */
+  const dragPath = useCallback(
+    (id, index, key, point, breakSmooth) => {
+      const item = docRef.current.items.find((candidate) => candidate.id === id)
+      if (!item) return
+      writeNodes(id, moveHandle(nodesOf(item), index, key, point, breakSmooth), false)
+    },
+    [writeNodes],
+  )
+
+  /**
+   * Poignée lâchée : la boîte du bloc épouse à nouveau son chemin. Sans ce recadrage,
+   * un nœud tiré au loin laisserait une boîte de sélection démesurée.
+   */
+  const dropPath = useCallback(
+    (id) => {
+      commit((d) => ({
+        ...d,
+        items: d.items.map((item) => {
+          if (item.id !== id) return item
+          return { ...item, closed: isClosed(item), ...normalizePath(item, nodesOf(item)) }
+        }),
+      }))
+    },
+    [commit],
+  )
+
+  const addPathNode = useCallback(
+    (id, index) => {
+      const item = docRef.current.items.find((candidate) => candidate.id === id)
+      if (!item) return
+      writeNodes(id, splitSegment(nodesOf(item), index, 0.5, isClosed(item)), true)
+    },
+    [writeNodes],
+  )
+
+  const removePathNode = useCallback(
+    (id, index) => {
+      const item = docRef.current.items.find((candidate) => candidate.id === id)
+      if (!item) return
+      const nodes = removeNode(nodesOf(item), index)
+      commit((d) => ({
+        ...d,
+        items: d.items.map((entry) =>
+          entry.id === id
+            ? { ...entry, nodes, closed: isClosed(entry), ...normalizePath(entry, nodes) }
+            : entry,
+        ),
+      }))
+    },
+    [commit],
+  )
+
   /* ---------- style repris d'un bloc à l'autre ---------- */
 
   const styleClip = useRef(null)
@@ -2989,7 +3070,8 @@ export default function Whiteboard() {
     if (selectedShape) {
       changeItem(
         selectedShape.id,
-        { kind, filled: selectedShape.filled && CLOSED.has(kind) },
+        // Choisir une autre forme repart de sa géométrie : les nœuds retouchés sautent.
+        { kind, nodes: null, filled: selectedShape.filled && CLOSED.has(kind) },
         true,
       )
     }
@@ -3161,6 +3243,20 @@ export default function Whiteboard() {
             bubbles={bubbles}
             shaking={shaking}
           />
+
+          {/* Une forme sélectionnée montre ses nœuds, comme un arc montre les siens. */}
+          {tool === 'select' && selectedShape && !selectedShape.locked && (
+            <PathHandles
+              item={selectedShape}
+              toWorld={toWorld}
+              onDrag={(index, key, point, alt) =>
+                dragPath(selectedShape.id, index, key, point, alt)
+              }
+              onDrop={() => dropPath(selectedShape.id)}
+              onAdd={(index) => addPathNode(selectedShape.id, index)}
+              onRemove={(index) => removePathNode(selectedShape.id, index)}
+            />
+          )}
 
           {editedArcs.map((arc) => (
             <ArcHandles
@@ -3355,6 +3451,7 @@ export default function Whiteboard() {
         selectedTable={selectedItem?.type === 'table' ? selectedItem : null}
         selectedMarkdown={selectedItem?.type === 'markdown' ? selectedItem : null}
         selectedShape={selectedShape}
+        canFill={selectedShape ? isClosed(selectedShape) : null}
         selectedGroup={selectedGroup}
         selectedText={selectedText}
         selectedSketch={selectedSketch}

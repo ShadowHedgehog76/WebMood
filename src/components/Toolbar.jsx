@@ -111,6 +111,7 @@ export default function Toolbar({
   selectedTable,
   selectedMarkdown,
   selectedShape,
+  canFill,
   selectedGroup,
   selectedText,
   selectedSketch,
@@ -447,7 +448,7 @@ export default function Toolbar({
               <IconStraighten size={17} />
             </button>
           )}
-          {CLOSED.has(kind) && (
+          {(selectedShape ? canFill : CLOSED.has(kind)) && (
             <button
               className={`chip chip--icon ${(selectedShape ? selectedShape.filled : filled) ? 'is-active' : ''}`}
               onClick={actions.toggleFill}
