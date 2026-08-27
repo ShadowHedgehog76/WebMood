@@ -30,6 +30,7 @@ function BoardItem({
   draggable,
   locked,
   rank,
+  votes,
   linkTarget,
   tween,
   toWorld,
@@ -171,6 +172,10 @@ function BoardItem({
       )}
 
       {item.type === 'image' && <img src={item.src} alt={item.name} draggable={false} />}
+
+      {item.type === 'dot' && <span className="dot" style={{ background: item.color }} />}
+
+      {votes > 0 && <span className="item__votes">{votes}</span>}
 
       {item.type === 'frame' && <FrameBlock item={item} rank={rank} />}
 

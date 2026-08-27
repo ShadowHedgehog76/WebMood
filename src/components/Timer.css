@@ -1,0 +1,66 @@
+/* Minuteur : un bandeau discret en haut, à côté de l'état d'enregistrement. */
+.timer {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: 0 6px 22px rgb(0 0 0 / 0.14);
+  animation: timer-in 0.2s ease;
+}
+
+@keyframes timer-in {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+}
+
+.timer__title {
+  padding: 0 6px;
+  color: #8a8a8e;
+  font-size: 13px;
+}
+
+.timer__preset,
+.timer__close {
+  height: 28px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 9px;
+  background: rgb(28 28 30 / 0.06);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.timer__preset:hover,
+.timer__close:hover {
+  background: rgb(28 28 30 / 0.12);
+}
+
+.timer__close {
+  padding: 0 9px;
+  color: #8a8a8e;
+}
+
+.timer__count {
+  padding: 0 8px;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* Fin du temps : le bandeau bat une fois pour se faire remarquer. */
+.timer.is-done {
+  background: #ffe9e6;
+  animation: timer-ring 0.6s ease 3;
+}
+
+@keyframes timer-ring {
+  50% { transform: translateX(-50%) scale(1.06); }
+}

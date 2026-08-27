@@ -10,7 +10,7 @@
 const PREFIX = 'moodboard-'
 const ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789'
 
-const RELAYED = new Set(['doc', 'sync', 'cursor', 'chat', 'typing', 'shake', 'mark'])
+const RELAYED = new Set(['doc', 'sync', 'cursor', 'chat', 'typing', 'shake', 'mark', 'timer'])
 
 // Battement de cœur : l'hôte donne signe de vie, chacun surveille l'autre bout.
 const PING_EVERY = 2500

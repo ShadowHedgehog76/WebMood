@@ -21,6 +21,7 @@ import {
   IconGroup,
   IconHand,
   IconImage,
+  IconLaser,
   IconLine,
   IconLink,
   IconLinkStyle,
@@ -40,9 +41,11 @@ import {
   IconSquare,
   IconStraighten,
   IconText,
+  IconTimer,
   IconTrash,
   IconTriangle,
   IconUndo,
+  IconVote,
 } from './Icons.jsx'
 
 const LAYOUT_ICONS = {
@@ -88,6 +91,7 @@ export default function Toolbar({
   selectedCount,
   selectedItem,
   frameCount,
+  timerOpen,
   selectedShape,
   selectedGroup,
   selectedText,
@@ -363,6 +367,9 @@ export default function Toolbar({
       )
     }
 
+    // La gommette prend la couleur choisie — ou celle de la personne, en session.
+    if (tool === 'vote') return colorButton
+
     if (tool === 'marker') {
       return (
         <>
@@ -482,6 +489,20 @@ export default function Toolbar({
         </button>
 
         <button
+          className={`tool ${tool === 'laser' ? 'is-active' : ''}`}
+          onClick={() => setTool('laser')}
+          {...tipProps('Pointeur laser : montrer sans laisser de trace')}
+        >
+          <IconLaser />
+        </button>
+        <button
+          className={`tool ${tool === 'vote' ? 'is-active' : ''}`}
+          onClick={() => setTool('vote')}
+          {...tipProps('Gommette de vote')}
+        >
+          <IconVote />
+        </button>
+        <button
           className={`tool ${tool === 'link' ? 'is-active' : ''}`}
           onClick={() => setTool('link')}
           {...tipProps('Connexion : un bloc, puis l’autre', 'L')}
@@ -539,6 +560,18 @@ export default function Toolbar({
           {...tipProps('Bloc visuel : le code fait la vue')}
         >
           <IconSketch />
+        </button>
+      </div>
+
+      <span className="toolbar__sep" />
+
+      <div className="toolbar__group">
+        <button
+          className={`tool ${timerOpen ? 'is-active' : ''}`}
+          onClick={actions.toggleTimer}
+          {...tipProps('Minuteur partagé')}
+        >
+          <IconTimer />
         </button>
       </div>
 

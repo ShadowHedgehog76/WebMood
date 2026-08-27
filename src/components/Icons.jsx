@@ -402,3 +402,26 @@ export const IconSearch = (props) => (
     <path d="m16 16 4 4" />
   </Icon>
 )
+
+export const IconLaser = (props) => (
+  <Icon {...props}>
+    <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" />
+    <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+    <path d="m5.9 5.9 2.1 2.1M16 16l2.1 2.1M18.1 5.9 16 8M8 16l-2.1 2.1" opacity="0.55" />
+  </Icon>
+)
+
+export const IconVote = (props) => (
+  <Icon {...props}>
+    <circle cx="9" cy="9" r="4" fill="currentColor" stroke="none" />
+    <circle cx="16" cy="15" r="4" />
+  </Icon>
+)
+
+export const IconTimer = (props) => (
+  <Icon {...props}>
+    <circle cx="12" cy="13.5" r="7.5" />
+    <path d="M12 9.8v3.7l2.4 1.6" />
+    <path d="M9.5 2.8h5" />
+  </Icon>
+)

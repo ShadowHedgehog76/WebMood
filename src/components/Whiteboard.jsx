@@ -12,6 +12,8 @@ import Pings from './Pings.jsx'
 import ArcHandles from './ArcHandles.jsx'
 import Tour, { STEPS } from './Tour.jsx'
 import Search from './Search.jsx'
+import Laser from './Laser.jsx'
+import Timer from './Timer.jsx'
 import Present from './Present.jsx'
 import { decodeBoard } from '../lib/share.js'
 import { makeCode, openSession } from '../lib/session.js'
@@ -172,6 +174,25 @@ export default function Whiteboard() {
   const [linkStyle, setLinkStyle] = useState('curve') // 'curve', 'elbow' ou 'straight'
   const [searching, setSearching] = useState(false)
   const [present, setPresent] = useState(null) // index de la scène montrée, ou rien
+  const [timer, setTimer] = useState(null) // { endsAt } en marche, { left } en pause
+  const [showTimer, setShowTimer] = useState(false)
+  // Traînées du pointeur laser : la mienne et celle des autres, jamais enregistrées.
+  const lasers = useRef(new Map())
+
+  /** Ajoute un point à une traînée de laser. Elle s'éteindra d'elle-même. */
+  const pressed = useRef(false)
+  const presentRef = useRef(null)
+
+  const trace = useCallback((id, point, color) => {
+    const trail = lasers.current.get(id)
+    const stamped = { x: point.x, y: point.y, at: performance.now() }
+    if (trail) {
+      trail.color = color
+      trail.points.push(stamped)
+    } else {
+      lasers.current.set(id, { color, points: [stamped] })
+    }
+  }, [])
   const [arrow, setArrow] = useState('end')
   const [shape, setShape] = useState('rect')
   const [filled, setFilled] = useState(false)
@@ -706,6 +727,9 @@ export default function Whiteboard() {
 
         case 'cursor':
           cursorTargets.current.set(from, { x: message.x, y: message.y })
+          if (message.tool === 'laser') {
+            trace(from, message, peers.find((peer) => peer.id === from)?.color ?? '#ff3b30')
+          }
           // L'outil ne change presque jamais : on ne re-rend que dans ce cas.
           if (message.tool && peerToolsRef.current.get(from) !== message.tool) {
             peerToolsRef.current.set(from, message.tool)
@@ -717,6 +741,11 @@ export default function Whiteboard() {
           setChat((current) => [...current.slice(-199), { ...message, id: `${from}-${message.at}` }])
           setUnread((count) => count + 1)
           showBubble(from, message.text)
+          break
+
+        case 'timer':
+          setTimer(message.timer)
+          setShowTimer(Boolean(message.timer))
           break
 
         case 'mark':
@@ -1941,6 +1970,12 @@ export default function Whiteboard() {
   const onPointerDown = (event) => {
     if (event.pointerType === 'pen') penDown.current = true
 
+    // En présentation, le tableau ne se modifie plus : le pointeur ne fait que montrer.
+    if (presentRef.current !== null) {
+      pressed.current = true
+      return
+    }
+
     if (event.pointerType === 'touch') {
       // Le stylet a la priorité : la paume et les doigts ne perturbent pas le tracé.
       if (penDown.current) {
@@ -1974,6 +2009,11 @@ export default function Whiteboard() {
     if (pendingRef.current) setPending(null)
 
     const current = toolRef.current
+
+    if (current === 'vote') {
+      placeVote(toWorld(event.clientX, event.clientY))
+      return
+    }
 
     if (current === 'frame') {
       const rank = docRef.current.items.filter((item) => item.type === 'frame').length
@@ -2109,6 +2149,11 @@ export default function Whiteboard() {
       move.paint = true
     }
 
+    // Pendant une présentation, le doigt appuyé montre : c'est le laser, sans changer d'outil.
+    if (toolRef.current === 'laser' || (presentRef.current !== null && pressed.current)) {
+      trace('self', toWorld(event.clientX, event.clientY), sessionRef.current?.self.color ?? '#ff3b30')
+    }
+
     if (sessionRef.current) move.cursor = toWorld(event.clientX, event.clientY)
 
     nextMove.current = move
@@ -2117,6 +2162,7 @@ export default function Whiteboard() {
 
   const endPointer = (event) => {
     if (event.pointerType === 'pen') penDown.current = false
+    pressed.current = false
 
     // Une image encore en attente conclurait le geste sur des coordonnées périmées :
     // un tracé rapide se retrouverait réduit à un simple clic.
@@ -2296,7 +2342,7 @@ export default function Whiteboard() {
         t: 'cursor',
         x: move.cursor.x,
         y: move.cursor.y,
-        tool: toolRef.current,
+        tool: presentRef.current !== null && pressed.current ? 'laser' : toolRef.current,
       })
     }
     if (move.gesture) applyGestureRef.current()
@@ -2357,6 +2403,71 @@ export default function Whiteboard() {
     return () => el.removeEventListener('wheel', onWheel)
   }, [scheduleFrame])
 
+  /* ---------- gommettes de vote ---------- */
+
+  const VOTE_SIZE = 26
+
+  /**
+   * Une gommette par clic, à la couleur de la personne. Cliquer sur la sienne la retire :
+   * on change d'avis sans changer d'outil.
+   */
+  const placeVote = useCallback(
+    (point) => {
+      const color = sessionRef.current?.self.color ?? colorRef.current
+      const half = VOTE_SIZE / 2
+      const mine = docRef.current.items.find(
+        (item) =>
+          item.type === 'dot' &&
+          item.color === color &&
+          Math.hypot(item.x + half - point.x, item.y + half - point.y) < half + 4,
+      )
+      if (mine) {
+        commit((d) => ({ ...d, items: d.items.filter((item) => item.id !== mine.id) }))
+        return
+      }
+      commit((d) => ({
+        ...d,
+        items: [
+          ...d.items,
+          {
+            id: newId(),
+            type: 'dot',
+            color,
+            x: Math.round(point.x - half),
+            y: Math.round(point.y - half),
+            w: VOTE_SIZE,
+            h: VOTE_SIZE,
+          },
+        ],
+      }))
+    },
+    [commit],
+  )
+
+  /* ---------- minuteur partagé ---------- */
+
+  /** Le minuteur suit la même horloge pour tout le monde : seule la date de fin circule. */
+  const shareTimer = useCallback((next) => {
+    setTimer(next)
+    setShowTimer(Boolean(next))
+    sessionRef.current?.send({ t: 'timer', timer: next })
+  }, [])
+
+  const startTimer = useCallback((duration) => shareTimer({ endsAt: Date.now() + duration }), [shareTimer])
+
+  /** En marche on retient le temps restant ; en pause on repart de ce temps-là. */
+  const pauseTimer = useCallback(() => {
+    setTimer((current) => {
+      if (!current) return current
+      const next =
+        current.left === undefined
+          ? { left: Math.max(0, current.endsAt - Date.now()) }
+          : { endsAt: Date.now() + current.left }
+      sessionRef.current?.send({ t: 'timer', timer: next })
+      return next
+    })
+  }, [])
+
   /* ---------- cadres et présentation ---------- */
 
   const flight = useRef(0)
@@ -2382,6 +2493,21 @@ export default function Whiteboard() {
   }, [])
 
   const frames = useMemo(() => orderFrames(doc.items), [doc.items])
+
+  /** Gommettes rapportées au bloc qui les porte : le compte s'affiche sur le bloc. */
+  const votes = useMemo(() => {
+    const dots = doc.items.filter((item) => item.type === 'dot')
+    if (!dots.length) return null
+    const targets = doc.items.filter((item) => item.type !== 'dot' && item.type !== 'frame')
+    const counts = new Map()
+    for (const dot of dots) {
+      const middle = { x: dot.x + dot.w / 2, y: dot.y + dot.h / 2 }
+      // Le bloc le plus haut dans la pile emporte la voix.
+      const target = [...targets].reverse().find((item) => contains(item, middle))
+      if (target) counts.set(target.id, (counts.get(target.id) ?? 0) + 1)
+    }
+    return counts
+  }, [doc.items])
   const framesRef = useRef(frames)
   framesRef.current = frames
 
@@ -2399,6 +2525,7 @@ export default function Whiteboard() {
   )
 
   const leavePresent = useCallback(() => setPresent(null), [])
+  presentRef.current = present
 
   /** Centre la vue sur un bloc, sans changer le niveau de zoom. */
   const goToItem = useCallback(
@@ -2888,6 +3015,7 @@ export default function Whiteboard() {
               draggable={tool === 'select' && !item.locked && present === null}
               locked={Boolean(item.locked)}
               rank={item.type === 'frame' ? frames.findIndex((f) => f.id === item.id) + 1 : 0}
+              votes={votes?.get(item.id) ?? 0}
               linkTarget={linking}
               tween={tween}
               toWorld={toWorld}
@@ -2999,6 +3127,8 @@ export default function Whiteboard() {
         </div>
 
         <canvas ref={drawRef} className="board__canvas" />
+
+        <Laser trails={lasers} view={viewRef} />
       </div>
 
       {tourStep !== null && (
@@ -3097,6 +3227,7 @@ export default function Whiteboard() {
         selectedCount={selectedIds.length}
         selectedItem={selectedItem}
         frameCount={frames.length}
+        timerOpen={showTimer}
         selectedShape={selectedShape}
         selectedGroup={selectedGroup}
         selectedText={selectedText}
@@ -3121,6 +3252,7 @@ export default function Whiteboard() {
           toggleLock,
           straightenShape,
           present: () => showFrame(0),
+          toggleTimer: () => setShowTimer((open) => !open),
           toggleFill,
           toggleTextVariant,
           setSketchMode,
@@ -3175,6 +3307,16 @@ export default function Whiteboard() {
               y: viewport.h / 2 - point.y * prev.scale,
             }))
           }
+        />
+      )}
+
+      {(showTimer || timer) && present === null && (
+        <Timer
+          state={timer}
+          onStart={startTimer}
+          onPause={pauseTimer}
+          onStop={() => shareTimer(null)}
+          onClose={() => setShowTimer(false)}
         />
       )}
 

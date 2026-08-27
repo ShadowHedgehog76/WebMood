@@ -184,3 +184,37 @@
 @keyframes lock-pop {
   from { transform: translate(-40%, -40%) scale(calc(var(--inv) * 0.4)); opacity: 0; }
 }
+
+/* Gommette de vote : une pastille posée sur ce qu'on soutient. */
+.dot {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.22);
+  animation: dot-pop 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes dot-pop {
+  from { transform: scale(0.2); opacity: 0; }
+}
+
+/* Le compte des gommettes reçues, dans le coin haut droit du bloc. */
+.item__votes {
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translate(35%, -35%) scale(var(--inv));
+  transform-origin: top right;
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 12px;
+  background: #1c1c1e;
+  color: #fff;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
