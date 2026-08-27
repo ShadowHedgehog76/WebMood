@@ -29,7 +29,11 @@ function noise(seed) {
   return x - Math.floor(x)
 }
 
-/** Le trait a-t-il été posé au stylet ? Ses points portent alors une pression. */
+/**
+ * Le trait porte-t-il une pression ? Le tri a déjà été fait à la saisie : ce qui est
+ * enregistré vient d'un appareil qui mesure. Un trait appuyé régulièrement doit rester
+ * épais d'un bout à l'autre, on ne demande donc pas que la pression varie.
+ */
 export const hasPressure = (points) => points.some((point) => point.p !== undefined)
 
 /**
@@ -46,13 +50,21 @@ function widths(points, size) {
     return Math.hypot(point.x - previous.x, point.y - previous.y)
   })
 
+  // Un événement peut arriver sans pression au milieu d'un trait : on prolonge alors la
+  // dernière connue, plutôt que de creuser un trou dans l'épaisseur.
+  const forces = []
+  let last = 0.5
+  for (const point of points) {
+    if (point.p !== undefined) last = point.p
+    forces.push(last)
+  }
+
   return points.map((point, index) => {
     let thin
     if (pressure) {
       // Moyenne sur trois points : la pression relevée saute d'un événement à l'autre.
-      const window = points.slice(Math.max(0, index - 1), index + 2)
-      const force =
-        window.reduce((sum, entry) => sum + (entry.p ?? 0.5), 0) / window.length
+      const window = forces.slice(Math.max(0, index - 1), index + 2)
+      const force = window.reduce((sum, value) => sum + value, 0) / window.length
       thin = 0.25 + force * 1.3
     } else {
       // Moyenne glissante : sans elle, un point isolé ferait un renflement.

@@ -2148,6 +2148,20 @@ export default function Whiteboard() {
 
   /* ---------- interactions pointeur ---------- */
 
+  /**
+   * La pression relevée vaut-elle la peine d'être gardée ? Selon son pilote, une tablette
+   * graphique s'annonce parfois comme une souris : on se fie donc à la valeur plutôt qu'à
+   * l'étiquette. Une souris rapporte exactement 0,5 tant qu'elle est enfoncée, un doigt 0
+   * ou 1 — rien de tout cela ne dit quoi que ce soit de la force du geste.
+   */
+  const usablePressure = (event) => {
+    if (event.pointerType === 'touch') return false
+    if (event.pointerType === 'pen') return true
+    // 0,5 pile, c'est la valeur qu'une souris rapporte tant qu'elle est enfoncée :
+    // tout le reste vient d'un appareil qui mesure vraiment quelque chose.
+    return event.pressure > 0 && event.pressure !== 0.5
+  }
+
   const localPoint = (event) => {
     const rect = containerRef.current.getBoundingClientRect()
     return { x: event.clientX - rect.left, y: event.clientY - rect.top }
@@ -2341,11 +2355,11 @@ export default function Whiteboard() {
       ...(current !== 'eraser' && dashRef.current !== 'solid' ? { dash: dashRef.current } : null),
       ...(current === 'pen' && brushRef.current !== 'plain' ? { brush: brushRef.current } : null),
       // L'inclinaison du stylet à la pose donne l'angle de la plume calligraphique.
-      ...(event.pointerType === 'pen' && (event.tiltX || event.tiltY)
+      ...(event.tiltX || event.tiltY
         ? { tilt: Math.atan2(event.tiltY, event.tiltX) }
         : null),
       points: [
-        event.pointerType === 'pen'
+        usablePressure(event)
           ? { ...toWorld(event.clientX, event.clientY), p: Math.round(event.pressure * 100) / 100 }
           : toWorld(event.clientX, event.clientY),
       ],
@@ -2395,12 +2409,9 @@ export default function Whiteboard() {
     } else if (liveStroke.current) {
       const coalesced = event.nativeEvent.getCoalescedEvents?.()
       const events = coalesced?.length ? coalesced : [event.nativeEvent]
-      // La pression n'est retenue que du stylet : une souris répond 0,5 en permanence
-      // et un doigt 0, ce qui ne veut rien dire.
-      const pen = event.pointerType === 'pen'
       const fresh = events.map((e) => {
         const point = toWorld(e.clientX, e.clientY)
-        return pen ? { ...point, p: Math.round(e.pressure * 100) / 100 } : point
+        return usablePressure(e) ? { ...point, p: Math.round(e.pressure * 100) / 100 } : point
       })
       liveStroke.current.points.push(...fresh)
       move.paint = true
