@@ -9,6 +9,7 @@ import ShareDialog from './ShareDialog.jsx'
 import ChatRail from './ChatRail.jsx'
 import QuickChat from './QuickChat.jsx'
 import Pings from './Pings.jsx'
+import ArcHandles from './ArcHandles.jsx'
 import { decodeBoard } from '../lib/share.js'
 import { makeCode, openSession } from '../lib/session.js'
 import { createShakeDetector } from '../lib/shake.js'
@@ -28,8 +29,17 @@ import {
 } from '../lib/files.js'
 import { autoLayout, groupFor } from '../lib/groups.js'
 import { branches, childrenOf, layoutTree, progressOf, rootOf, subtree } from '../lib/mindmap.js'
-import { CLOSED, DEFAULT_SHAPE_SIZE, isTooSmall, normalizeRect, shapeItem } from '../lib/shapes.js'
+import {
+  CLOSED,
+  DEFAULT_SHAPE_SIZE,
+  DRAWN,
+  freeShape,
+  isTooSmall,
+  normalizeRect,
+  shapeItem,
+} from '../lib/shapes.js'
 import { alignItems } from '../lib/align.js'
+import { anchorsOf, arcPath, defaultBend, nearestAnchor, resolveEnd, snapReach } from '../lib/links.js'
 import { GROUP_TINTS, QUICK_COLORS } from '../lib/palette.js'
 import {
   deleteBoard,
@@ -171,6 +181,7 @@ export default function Whiteboard() {
   const [shaking, setShaking] = useState(new Set())
   const [pings, setPings] = useState([])
   const [tween, setTween] = useState(false) // les blocs glissent vers leur nouvelle place
+  const [arcSnap, setArcSnap] = useState(null) // accroche visée en déplaçant une extrémité
   const [quick, setQuick] = useState(null) // saisie rapide ouverte à la position du curseur
   const [liveStatus, setLiveStatus] = useState('idle')
   const [liveError, setLiveError] = useState(null)
@@ -220,15 +231,14 @@ export default function Whiteboard() {
 
   const clearSelection = useCallback(() => setSelection({ items: [], link: null }), [])
 
-  /** Passer au crayon ou à la gomme, c'est vouloir dessiner : on relâche la sélection. */
-  const chooseTool = useCallback(
-    (next) => {
-      setTool(next)
-      setMenu(null)
-      if (next === 'pen' || next === 'eraser') setSelection({ items: [], link: null })
-    },
-    [],
-  )
+  /** Prendre un outil de tracé, c'est vouloir dessiner : on relâche la sélection. */
+  const chooseTool = useCallback((next) => {
+    setTool(next)
+    setMenu(null)
+    if (next === 'pen' || next === 'eraser' || next === 'shape') {
+      setSelection({ items: [], link: null })
+    }
+  }, [])
 
   const selectItems = useCallback((ids, additive = false) => {
     setSelection((current) => {
@@ -1086,6 +1096,21 @@ export default function Whiteboard() {
   // Les nouveaux blocs arrivent au centre : on les décale en cascade pour éviter la pile.
   const spawnIndex = useRef(0)
 
+  const itemsById = useCallback(
+    () => new Map(docRef.current.items.map((item) => [item.id, item])),
+    [],
+  )
+
+  /** Transforme un point libre en accroche si un bloc est assez proche. */
+  const snapEnd = useCallback((point) => {
+    const found = nearestAnchor(
+      docRef.current.items.filter((item) => item.type !== 'group'),
+      point,
+      snapReach(viewRef.current.scale),
+    )
+    return found ? { id: found.id, side: found.side } : { x: Math.round(point.x), y: Math.round(point.y) }
+  }, [])
+
   const viewportCenter = useCallback(() => {
     const rect = containerRef.current.getBoundingClientRect()
     const center = toWorld(rect.left + rect.width / 2, rect.top + rect.height / 2)
@@ -1532,6 +1557,41 @@ export default function Whiteboard() {
 
   /* ---------- connexions ---------- */
 
+  /** Déplacement d'une poignée d'arc : mise à jour continue, sans entrée d'historique. */
+  const dragArc = useCallback(
+    (id, key, point) => {
+      const value = key === 'bend' ? point : { x: Math.round(point.x), y: Math.round(point.y) }
+      write(
+        (d) => ({
+          ...d,
+          links: d.links.map((link) => (link.id === id ? { ...link, [key]: value } : link)),
+        }),
+        false,
+      )
+      if (key !== 'bend') {
+        const found = nearestAnchor(
+          docRef.current.items.filter((item) => item.type !== 'group'),
+          point,
+          snapReach(viewRef.current.scale),
+        )
+        setArcSnap(found ? { x: found.x, y: found.y } : null)
+      }
+    },
+    [write],
+  )
+
+  const dropArc = useCallback(
+    (id, key, point) => {
+      setArcSnap(null)
+      const value = key === 'bend' ? point : snapEnd(point)
+      commit((d) => ({
+        ...d,
+        links: d.links.map((link) => (link.id === id ? { ...link, [key]: value } : link)),
+      }))
+    },
+    [commit, snapEnd],
+  )
+
   const changeLink = useCallback(
     (id, patch, recordHistory = true) => {
       write(
@@ -1705,7 +1765,13 @@ export default function Whiteboard() {
 
     if (current === 'shape' && event.button === 0) {
       const at = toWorld(event.clientX, event.clientY)
-      draftRef.current = { from: at, to: at }
+      const kind = shapeRef.current
+      draftRef.current =
+        kind === 'free'
+          ? { free: true, points: [at] }
+          : kind === 'arc'
+            ? { arc: true, from: snapEnd(at), to: at }
+            : { from: at, to: at }
       setDraft({ ...draftRef.current })
       return
     }
@@ -1834,6 +1900,41 @@ export default function Whiteboard() {
     if (sketchDraft) {
       draftRef.current = null
       setDraft(null)
+      if (sketchDraft.arc) {
+        const from = sketchDraft.from
+        const to = snapEnd(sketchDraft.to)
+        const a = resolveEnd(from, itemsById()) ?? sketchDraft.to
+        const b = resolveEnd(to, itemsById()) ?? sketchDraft.to
+        if (Math.hypot(b.x - a.x, b.y - a.y) > 12) {
+          const link = {
+            id: newId(),
+            kind: 'arc',
+            from,
+            to,
+            bend: defaultBend(a, b),
+            color: colorRef.current,
+            width: sizeRef.current,
+            arrow: arrowRef.current === 'none' ? 'none' : arrowRef.current,
+          }
+          commit((d) => ({ ...d, links: [...d.links, link] }))
+          setTool('select')
+          setSelection({ items: [], link: link.id })
+        }
+        return
+      }
+
+      if (sketchDraft.free) {
+        const shape = freeShape({
+          id: newId(),
+          points: sketchDraft.points,
+          color: colorRef.current,
+          strokeWidth: sizeRef.current,
+          filled: filledRef.current,
+        })
+        if (shape) addItems([shape])
+        return
+      }
+
       const drawn = normalizeRect(sketchDraft.from, sketchDraft.to)
       // Un simple clic pose une forme de taille par défaut.
       const rect = isTooSmall(drawn)
@@ -1890,8 +1991,21 @@ export default function Whiteboard() {
       setBand({ ...bandRef.current })
     }
     if (move.draft && draftRef.current) {
-      draftRef.current = { ...draftRef.current, to: move.draft }
-      setDraft({ ...draftRef.current })
+      const current = draftRef.current
+      if (current.arc) {
+        draftRef.current = { ...current, to: move.draft }
+        setDraft({ ...draftRef.current })
+      } else if (current.free) {
+        const last = current.points.at(-1)
+        // On ne garde que les points qui apportent quelque chose.
+        if (Math.hypot(move.draft.x - last.x, move.draft.y - last.y) > 3 / viewRef.current.scale) {
+          current.points.push(move.draft)
+          setDraft({ ...current, points: [...current.points] })
+        }
+      } else {
+        draftRef.current = { ...current, to: move.draft }
+        setDraft({ ...draftRef.current })
+      }
     }
     if (move.cursor) {
       sessionRef.current?.send({
@@ -2014,12 +2128,12 @@ export default function Whiteboard() {
       // La lettre du raccourci ne doit pas finir dans le champ qu'il vient d'ouvrir.
       const shortcuts = {
         v: () => setTool('select'),
-        p: () => setTool('pen'),
-        e: () => setTool('eraser'),
+        p: () => chooseTool('pen'),
+        e: () => chooseTool('eraser'),
         h: () => setTool('hand'),
         l: () => setTool('link'),
         g: () => setTool('group'),
-        s: () => setTool('shape'),
+        s: () => chooseTool('shape'),
         t: () => addText('note'),
       }
       if (shortcuts[event.key]) {
@@ -2067,6 +2181,7 @@ export default function Whiteboard() {
     selection,
     clearSelection,
     addText,
+    chooseTool,
     copySelection,
     duplicateSelection,
     reorder,
@@ -2177,6 +2292,21 @@ export default function Whiteboard() {
     () => nodes.find((node) => node.id === selectedItemId) ?? null,
     [nodes, selectedItemId],
   )
+
+  const selectedArc = useMemo(
+    () => doc.links.find((link) => link.id === selectedLinkId && link.kind === 'arc') ?? null,
+    [doc.links, selectedLinkId],
+  )
+
+  // Aperçu de l'arc en cours de tracé.
+  const arcPreview = useMemo(() => {
+    if (!draft?.arc) return null
+    const byId = new Map(doc.items.map((item) => [item.id, item]))
+    const from = resolveEnd(draft.from, byId)
+    const to = draft.to
+    if (!from || !to) return null
+    return { from, to, bend: defaultBend(from, to) }
+  }, [draft, doc.items])
 
   const pendingLink = useMemo(() => {
     if (!pending) return null
@@ -2311,6 +2441,7 @@ export default function Whiteboard() {
           items={doc.items}
           branches={nodeBranches}
           view={view}
+          arc={arcPreview}
           selectedId={selectedLinkId}
           interactive={interactive}
           pending={pendingLink}
@@ -2362,6 +2493,17 @@ export default function Whiteboard() {
             shaking={shaking}
           />
 
+          {selectedArc && (
+            <ArcHandles
+              link={selectedArc}
+              items={doc.items}
+              snap={arcSnap}
+              toWorld={toWorld}
+              onDrag={(key, point) => dragArc(selectedArc.id, key, point)}
+              onDrop={(key, point) => dropArc(selectedArc.id, key, point)}
+            />
+          )}
+
           {guides.map((guide, index) => (
             <span
               key={index}
@@ -2385,7 +2527,32 @@ export default function Whiteboard() {
               )
             })()}
 
-          {draft &&
+          {draft?.free && draft.points.length > 1 &&
+            (() => {
+              const preview = freeShape({
+                id: 'draft',
+                points: draft.points,
+                color,
+                strokeWidth: size,
+                filled,
+              })
+              if (!preview) return null
+              return (
+                <div
+                  className="item item--draft"
+                  style={{
+                    left: preview.x,
+                    top: preview.y,
+                    width: preview.w,
+                    height: preview.h,
+                  }}
+                >
+                  <ShapeBlock item={preview} />
+                </div>
+              )
+            })()}
+
+          {draft && !draft.free && !draft.arc &&
             (() => {
               const rect = normalizeRect(draft.from, draft.to)
               const preview = shapeItem({

@@ -167,6 +167,20 @@ export const IconDiamond = (props) => (
   </Icon>
 )
 
+export const IconFreeform = (props) => (
+  <Icon {...props}>
+    <path d="M3.5 15.5c2.5-8 5-8 6.5-3.5s3 6 5 3 3.5-6 5.5-6.5" />
+  </Icon>
+)
+
+export const IconArc = (props) => (
+  <Icon {...props}>
+    <path d="M4 19c0-8 6-14 15-14" />
+    <circle cx="4" cy="19" r="2" fill="currentColor" stroke="none" />
+    <circle cx="19" cy="5" r="2" fill="currentColor" stroke="none" />
+  </Icon>
+)
+
 export const IconLine = (props) => (
   <Icon {...props}>
     <path d="M4.5 19.5 19.5 4.5" />

@@ -59,6 +59,13 @@ export default function ShapeBlock({ item }) {
         />
       )}
 
+      {item.kind === 'free' && item.points?.length > 1 && (
+        <path
+          d={freePath(item.points, pad, w - pad * 2, h - pad * 2, item.closed)}
+          {...common}
+        />
+      )}
+
       {(item.kind === 'line' || item.kind === 'arrow') && (
         <>
           <path d={`M${pad} ${bottom} L${right} ${pad}`} {...common} fill="none" />
@@ -74,6 +81,14 @@ export default function ShapeBlock({ item }) {
       )}
     </svg>
   )
+}
+
+/** Chemin d'une forme à main levée : les proportions reprennent la taille du bloc. */
+function freePath(points, pad, width, height, closed) {
+  const at = (point) => `${pad + point.x * width} ${pad + point.y * height}`
+  const path = [`M${at(points[0])}`, ...points.slice(1).map((point) => `L${at(point)}`)]
+  if (closed) path.push('Z')
+  return path.join(' ')
 }
 
 function arrowHead(x1, y1, x2, y2, size) {

@@ -114,9 +114,20 @@ et texte simple.
 ## Formes
 
 L'outil **forme** (`S`) trace des vecteurs au glisser, avec aperçu en direct ; un simple clic
-pose la forme à une taille par défaut. Les six formes — **rectangle, ellipse, triangle,
-losange, ligne, flèche** — se choisissent dans la barre de réglages, et changer de forme avec
-une forme sélectionnée **transforme celle-ci**.
+pose la forme à une taille par défaut. Huit formes se choisissent dans la barre de réglages —
+**rectangle, ellipse, triangle, losange, ligne, flèche, main levée, arc** — et changer de forme
+avec une forme sélectionnée **transforme celle-ci**.
+
+**Main levée** : on dessine d'un geste continu et le tracé devient une forme vectorielle, pas
+un trait de crayon — elle se déplace, se redimensionne et se recolore comme les autres. Les
+points sont rangés en proportions du cadre, donc le dessin suit fidèlement le
+redimensionnement ; un tracé qui revient près de son point de départ **se referme** tout seul
+et devient remplissable.
+
+**Arc** : une courbe à trois poignées — les deux extrémités et le point de courbure. Une
+extrémité lâchée près d'un bloc **s'accroche** à l'un de ses cinq points d'ancrage (quatre
+côtés et centre) et le **suit ensuite quand on le déplace** ; lâchée dans le vide, elle reste
+où elle est. L'arc accepte les mêmes styles de pointe que les connexions.
 
 - La **palette** donne la couleur, quatre pastilles les **épaisseurs courantes** et un
   cinquième bouton une **épaisseur libre** (curseur de 1 à 60 px, valeur affichée sur le

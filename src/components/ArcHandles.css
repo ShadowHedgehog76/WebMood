@@ -1,0 +1,36 @@
+.arc-handle {
+  position: absolute;
+  width: calc(12px * var(--inv, 1));
+  height: calc(12px * var(--inv, 1));
+  margin-left: calc(-6px * var(--inv, 1));
+  margin-top: calc(-6px * var(--inv, 1));
+  border-radius: 50%;
+  background: #fff;
+  border: calc(2px * var(--inv, 1)) solid #3b82f6;
+  cursor: grab;
+  pointer-events: auto;
+  animation: handle-in var(--fast) var(--ease-spring);
+}
+
+.arc-handle:active {
+  cursor: grabbing;
+}
+
+.arc-handle.is-bend {
+  border-radius: calc(3px * var(--inv, 1));
+  border-color: #8b5cf6;
+  transform: rotate(45deg);
+}
+
+/* Accroche visée pendant le déplacement d'une extrémité. */
+.arc-snap {
+  position: absolute;
+  width: calc(18px * var(--inv, 1));
+  height: calc(18px * var(--inv, 1));
+  margin-left: calc(-9px * var(--inv, 1));
+  margin-top: calc(-9px * var(--inv, 1));
+  border-radius: 50%;
+  border: calc(2px * var(--inv, 1)) solid #30a46c;
+  background: rgba(48, 164, 108, 0.18);
+  pointer-events: none;
+}

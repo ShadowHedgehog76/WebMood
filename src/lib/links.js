@@ -7,6 +7,9 @@ export const ARROW_STYLES = [
   { key: 'both', label: '↔', title: 'Flèche des deux côtés' },
 ]
 
+export const ANCHOR_SIDES = ['left', 'right', 'top', 'bottom', 'center']
+const SNAP_DISTANCE = 26 // en pixels écran
+
 const NORMALS = {
   left: { x: -1, y: 0 },
   right: { x: 1, y: 0 },
@@ -130,4 +133,70 @@ export function elbowRight(start, end, radius = 12) {
     `M ${start.x} ${start.y} L ${start.x} ${end.y - r} ` +
     `Q ${start.x} ${end.y} ${start.x + r} ${end.y} L ${end.x} ${end.y}`
   )
+}
+
+/** Point d'accroche d'un bloc : ses quatre côtés et son centre. */
+export function anchorPoint(item, side) {
+  if (side === 'center') return { x: item.x + item.w / 2, y: item.y + item.h / 2 }
+  return anchor(item, side)
+}
+
+export function anchorsOf(item) {
+  return ANCHOR_SIDES.map((side) => ({ side, id: item.id, ...anchorPoint(item, side) }))
+}
+
+/** Accroche la plus proche d'un point, à portée donnée (en unités « monde »). */
+export function nearestAnchor(items, point, reach) {
+  let best = null
+  for (const item of items) {
+    for (const candidate of anchorsOf(item)) {
+      const distance = Math.hypot(candidate.x - point.x, candidate.y - point.y)
+      if (distance <= reach && (!best || distance < best.distance)) {
+        best = { ...candidate, distance }
+      }
+    }
+  }
+  return best
+}
+
+export function snapReach(scale) {
+  return SNAP_DISTANCE / scale
+}
+
+/**
+ * Extrémité d'un arc : un point libre, ou une accroche sur un bloc qu'elle suit.
+ * `byId` donne les blocs par identifiant.
+ */
+export function resolveEnd(end, byId) {
+  if (!end) return null
+  if (typeof end === 'string') {
+    const item = byId.get(end)
+    return item ? anchorPoint(item, 'center') : null
+  }
+  if (end.id) {
+    const item = byId.get(end.id)
+    return item ? anchorPoint(item, end.side ?? 'center') : null
+  }
+  return { x: end.x, y: end.y }
+}
+
+/** Courbe quadratique passant par son point de contrôle. */
+export function arcPath(a, bend, b) {
+  return `M ${a.x} ${a.y} Q ${bend.x} ${bend.y} ${b.x} ${b.y}`
+}
+
+/** Point de contrôle par défaut : le milieu, décalé perpendiculairement. */
+export function defaultBend(a, b, ratio = 0.22) {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  return {
+    x: (a.x + b.x) / 2 - dy * ratio,
+    y: (a.y + b.y) / 2 + dx * ratio,
+  }
+}
+
+/** Tangente à l'extrémité d'une courbe quadratique, pour poser une pointe de flèche. */
+export function arcDirection(from, to) {
+  const length = Math.hypot(to.x - from.x, to.y - from.y) || 1
+  return { x: (to.x - from.x) / length, y: (to.y - from.y) / length }
 }

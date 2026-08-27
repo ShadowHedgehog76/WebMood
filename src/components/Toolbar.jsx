@@ -7,6 +7,7 @@ import { MINDMAP_LAYOUTS } from '../lib/mindmap.js'
 import { SKETCH_MODES } from '../lib/sketch.js'
 import {
   IconAlign,
+  IconArc,
   IconArrow,
   IconArrowStyle,
   IconCircle,
@@ -15,6 +16,7 @@ import {
   IconDiamond,
   IconEraser,
   IconFill,
+  IconFreeform,
   IconGroup,
   IconHand,
   IconImage,
@@ -49,6 +51,8 @@ const SHAPE_ICONS = {
   diamond: IconDiamond,
   line: IconLine,
   arrow: IconArrow,
+  free: IconFreeform,
+  arc: IconArc,
 }
 
 /**

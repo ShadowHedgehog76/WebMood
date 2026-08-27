@@ -1,5 +1,13 @@
 import { memo } from 'react'
-import { ARROW_STYLES, arrowHead, linkGeometry, pendingGeometry } from '../lib/links.js'
+import {
+  ARROW_STYLES,
+  arcDirection,
+  arcPath,
+  arrowHead,
+  linkGeometry,
+  pendingGeometry,
+  resolveEnd,
+} from '../lib/links.js'
 import { branchPath } from '../lib/mindmap.js'
 import './Links.css'
 
@@ -17,8 +25,12 @@ function toScreen(item, view) {
   }
 }
 
-function Links({ links, items, branches, view, selectedId, interactive, pending, onSelect }) {
+function Links({ links, items, branches, view, selectedId, interactive, pending, arc, onSelect }) {
   const byId = new Map(items.map((item) => [item.id, item]))
+  const project = (point) => ({
+    x: point.x * view.scale + view.x,
+    y: point.y * view.scale + view.y,
+  })
 
   return (
     <svg className="links">
@@ -37,14 +49,50 @@ function Links({ links, items, branches, view, selectedId, interactive, pending,
       })}
 
       {links.map((link) => {
+        const color = link.color || '#1c1c1e'
+        const width = (link.width || 2) * view.scale
+        const selected = selectedId === link.id
+
+        // Arc : deux extrémités libres ou accrochées, et un point de courbure.
+        if (link.kind === 'arc') {
+          const a = resolveEnd(link.from, byId)
+          const b = resolveEnd(link.to, byId)
+          if (!a || !b) return null
+
+          const start = project(a)
+          const end = project(b)
+          const bend = project(link.bend)
+          const d = arcPath(start, bend, end)
+
+          return (
+            <g key={link.id} className={`link ${selected ? 'is-selected' : ''}`}>
+              {selected && <path className="link__halo" d={d} strokeWidth={width * 4.5} />}
+              <path className="link__line" d={d} stroke={color} strokeWidth={width} fill="none" />
+              {(link.arrow === 'start' || link.arrow === 'both') && (
+                <path d={arrowHead(start, arcDirection(bend, start), width * 5)} fill={color} />
+              )}
+              {(link.arrow === 'end' || link.arrow === 'both') && (
+                <path d={arrowHead(end, arcDirection(bend, end), width * 5)} fill={color} />
+              )}
+              {interactive && (
+                <path
+                  className="link__hit"
+                  d={d}
+                  onPointerDown={(event) => {
+                    event.stopPropagation()
+                    onSelect(link.id)
+                  }}
+                />
+              )}
+            </g>
+          )
+        }
+
         const from = byId.get(link.from)
         const to = byId.get(link.to)
         if (!from || !to) return null
 
         const geometry = linkGeometry(toScreen(from, view), toScreen(to, view))
-        const selected = selectedId === link.id
-        const color = link.color || '#1c1c1e'
-        const width = (link.width || 2) * view.scale
 
         return (
           <g key={link.id} className={`link ${selected ? 'is-selected' : ''}`}>
@@ -75,6 +123,13 @@ function Links({ links, items, branches, view, selectedId, interactive, pending,
           </g>
         )
       })}
+
+      {arc && (
+        <path
+          className="link__pending"
+          d={arcPath(project(arc.from), project(arc.bend), project(arc.to))}
+        />
+      )}
 
       {pending && (
         <path
