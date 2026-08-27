@@ -76,6 +76,7 @@ choisie sert au crayon, et au fil sélectionné le cas échéant.
 
 ## Dessiner et sélectionner
 
+- Outil par défaut : la **sélection** — on arrive sur le tableau sans risquer d'y dessiner
 - Outils : **sélection** (`V`), **crayon** (`P`), **gomme** (`E`), **forme** (`S`), **connexion**
   (`L`), **groupe** (`G`), **main** (`H`), **note** (`T`)
 - Épaisseurs : quatre valeurs courantes plus un réglage libre au curseur ; même principe pour

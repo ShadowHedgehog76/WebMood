@@ -158,7 +158,7 @@ export default function Whiteboard() {
   const shakeTimers = useRef(new Map())
 
   const [doc, setDoc] = useState(EMPTY_DOC)
-  const [tool, setTool] = useState('pen')
+  const [tool, setTool] = useState('select')
   const [color, setColor] = useState(QUICK_COLORS[0])
   const [size, setSize] = useState(SIZES[1])
   const [arrow, setArrow] = useState('end')
@@ -920,6 +920,8 @@ export default function Whiteboard() {
 
   const closeTour = useCallback(() => {
     setTourStep(null)
+    // La visite a pu changer d'outil pour montrer les réglages : on rend la main proprement.
+    setTool('select')
     localStorage.setItem('moodboard:tour', 'vu')
   }, [])
 
