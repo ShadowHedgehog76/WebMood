@@ -30,6 +30,7 @@ import {
   newId,
   nodeItem,
   sketchItem,
+  markdownItem,
   tableItem,
   textItem,
 } from '../lib/files.js'
@@ -1464,6 +1465,12 @@ export default function Whiteboard() {
     },
     [commit, animated],
   )
+
+  const addMarkdown = useCallback(() => {
+    const item = markdownItem({ at: viewportCenter(), color: colorRef.current })
+    addItems([item])
+    setEditingId(item.id)
+  }, [addItems, viewportCenter])
 
   const addTable = useCallback(() => {
     addItems([tableItem({ at: viewportCenter(), color: colorRef.current })])
@@ -2930,6 +2937,8 @@ export default function Whiteboard() {
       changeItem(selectedShape.id, { color: value }, true)
     } else if (selectedText) {
       changeItem(selectedText.id, { color: value }, true)
+    } else if (selectedItem && ['markdown', 'table'].includes(selectedItem.type)) {
+      changeItem(selectedItem.id, { color: value }, true)
     } else if (selectedNode) {
       // Recolorer un nœud recolore sa branche.
       const painted = new Set(subtree(nodes, selectedNode.id).map((node) => node.id))
@@ -3302,6 +3311,7 @@ export default function Whiteboard() {
         timerOpen={showTimer}
         styleReady={styleReady}
         selectedTable={selectedItem?.type === 'table' ? selectedItem : null}
+        selectedMarkdown={selectedItem?.type === 'markdown' ? selectedItem : null}
         selectedShape={selectedShape}
         selectedGroup={selectedGroup}
         selectedText={selectedText}
@@ -3327,6 +3337,7 @@ export default function Whiteboard() {
           straightenShape,
           present: () => showFrame(0),
           toggleTimer: () => setShowTimer((open) => !open),
+          addMarkdown,
           addTable,
           resizeTable,
           copyStyle,

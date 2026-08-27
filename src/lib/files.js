@@ -146,6 +146,21 @@ export function textItem({ at = { x: 0, y: 0 }, color = '#f5a623', variant = 'no
   }
 }
 
+const MARKDOWN_SIZE = { w: 380, h: 260 }
+
+/** Bloc markdown : le texte source, rendu à la volée. */
+export function markdownItem({ at = { x: 0, y: 0 }, color = '#3b82f6', text = '' } = {}) {
+  return {
+    id: newId(),
+    type: 'markdown',
+    text,
+    color,
+    x: Math.round(at.x - MARKDOWN_SIZE.w / 2),
+    y: Math.round(at.y - MARKDOWN_SIZE.h / 2),
+    ...MARKDOWN_SIZE,
+  }
+}
+
 const TABLE_SIZE = { w: 460, h: 200 }
 
 /** Tableau : une grille de cellules, la première ligne servant d'en-tête. */

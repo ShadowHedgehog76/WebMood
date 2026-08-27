@@ -2,6 +2,8 @@
 
 const LABELS = {
   text: 'Note',
+  markdown: 'Markdown',
+  table: 'Tableau',
   node: 'Nœud',
   code: 'Code',
   sketch: 'Bloc visuel',
@@ -15,7 +17,10 @@ function contentOf(item) {
   switch (item.type) {
     case 'text':
     case 'node':
+    case 'markdown':
       return item.text ?? ''
+    case 'table':
+      return (item.cells ?? []).flat().join(' ')
     case 'code':
       return `${item.name ?? ''}\n${item.text ?? ''}`
     case 'sketch':

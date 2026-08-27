@@ -1,0 +1,93 @@
+/* Bloc markdown : une feuille blanche, un liseré à la couleur du bloc. */
+.md {
+  height: 100%;
+  border-radius: inherit;
+  border: 1px solid rgb(28 28 30 / 0.1);
+  border-left: 3px solid var(--tint);
+  background: #fff;
+  overflow: hidden;
+}
+
+.md__body,
+.md__input {
+  height: 100%;
+  padding: 14px 18px;
+  overflow: auto;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.md__body.is-empty {
+  color: #a1a1a6;
+}
+
+.md__input {
+  width: 100%;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13.5px;
+  white-space: pre-wrap;
+}
+
+.md__body > :first-child { margin-top: 0; }
+.md__body > :last-child { margin-bottom: 0; }
+
+.md__body h1 { font-size: 1.5em; margin: 0.6em 0 0.35em; }
+.md__body h2 { font-size: 1.28em; margin: 0.6em 0 0.35em; }
+.md__body h3 { font-size: 1.1em; margin: 0.6em 0 0.35em; }
+.md__body h4,
+.md__body h5,
+.md__body h6 { font-size: 1em; margin: 0.6em 0 0.35em; }
+
+.md__body p { margin: 0.45em 0; }
+
+.md__body ul,
+.md__body ol { margin: 0.4em 0; padding-left: 1.4em; }
+
+.md__body li { margin: 0.15em 0; }
+
+.md__body li input[type='checkbox'] {
+  margin-right: 4px;
+  accent-color: var(--tint);
+}
+
+.md__body blockquote {
+  margin: 0.5em 0;
+  padding: 0.1em 0 0.1em 0.9em;
+  border-left: 3px solid rgb(28 28 30 / 0.15);
+  color: #6b6b70;
+}
+
+.md__body code {
+  padding: 0.12em 0.35em;
+  border-radius: 5px;
+  background: rgb(28 28 30 / 0.06);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+}
+
+.md__body pre {
+  margin: 0.6em 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #f6f6f8;
+  overflow-x: auto;
+}
+
+.md__body pre code {
+  padding: 0;
+  background: none;
+}
+
+.md__body a { color: var(--tint); }
+
+.md__body img { max-width: 100%; border-radius: 8px; }
+
+.md__body hr {
+  margin: 0.8em 0;
+  border: none;
+  border-top: 1px solid rgb(28 28 30 / 0.12);
+}

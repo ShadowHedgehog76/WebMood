@@ -461,3 +461,11 @@ export const IconRowPlus = ({ minus = false, column = false, ...props }) => (
     <path d={minus ? 'M15.5 21.5h5' : 'M18 19v5M15.5 21.5h5'} />
   </Icon>
 )
+
+export const IconMarkdown = (props) => (
+  <Icon {...props}>
+    <rect x="2.5" y="6" width="19" height="12" rx="2" />
+    <path d="M6 15V9l2.4 3L10.8 9v6" />
+    <path d="M14.6 9v6M14.6 15l-1.5-1.8M14.6 15l1.5-1.8" />
+  </Icon>
+)

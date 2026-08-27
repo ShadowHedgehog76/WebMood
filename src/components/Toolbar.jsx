@@ -27,6 +27,7 @@ import {
   IconLink,
   IconLinkStyle,
   IconLock,
+  IconMarkdown,
   IconMarker,
   IconMindmap,
   IconNote,
@@ -97,6 +98,7 @@ export default function Toolbar({
   timerOpen,
   styleReady,
   selectedTable,
+  selectedMarkdown,
   selectedShape,
   selectedGroup,
   selectedText,
@@ -317,6 +319,9 @@ export default function Toolbar({
         </button>
       ))
     }
+
+    // Le bloc markdown n'a qu'un réglage : la teinte de son liseré et de ses liens.
+    if (selectedMarkdown) return colorButton
 
     if (selectedTable) {
       return (
@@ -625,6 +630,9 @@ export default function Toolbar({
         </button>
         <button className="tool" onClick={actions.addTable} {...tipProps('Tableau')}>
           <IconTable />
+        </button>
+        <button className="tool" onClick={actions.addMarkdown} {...tipProps('Bloc markdown')}>
+          <IconMarkdown />
         </button>
         <button
           className="tool"
