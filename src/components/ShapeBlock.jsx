@@ -44,10 +44,11 @@ export default function ShapeBlock({ item }) {
 
   return (
     <svg className="shape" width="100%" height="100%" viewBox={`0 0 ${w} ${h}`}>
-      {/* Le remplissage est posé à part : il ne doit pas suivre le motif du contour. */}
-      {filled && outline({ fill: item.color, fillOpacity: 0.18, stroke: 'none' })}
+      {/* Le remplissage est posé à part : il ne doit pas suivre le motif du contour.
+          Une tache de seau est franche ; le fond d'une forme reste transparent. */}
+      {filled && outline({ fill: item.color, fillOpacity: item.solid ? 1 : 0.18, stroke: 'none' })}
 
-      {double ? (
+      {item.solid ? null : double ? (
         <>
           {/* Trait double : on évide le cœur d'un trait large, et les deux bords
               restent parallèles quelle que soit la forme. */}

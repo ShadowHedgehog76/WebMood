@@ -21,6 +21,7 @@ import { makeCode, openSession } from '../lib/session.js'
 import { createShakeDetector } from '../lib/shake.js'
 import { caretPoint } from '../lib/caret.js'
 import { snapPosition } from '../lib/snap.js'
+import { floodFill, traceOutline } from '../lib/bucket.js'
 import { DASHABLE_BRUSHES, paintBrush } from '../lib/brushes.js'
 import {
   followJoins,
@@ -29,6 +30,8 @@ import {
   nearestNode,
   nodesOf,
   normalizePath,
+  pathData,
+  simplifyPoints,
   projector,
   removeNode,
   splitSegment,
@@ -1322,30 +1325,143 @@ export default function Whiteboard() {
   )
 
   /**
-   * Seau : remplit ce sur quoi on clique. Une forme fermée prend la couleur en fond, un
-   * bloc coloré la prend tout court. Rien ne se passe sur le vide : le tableau n'a pas
-   * de zones délimitées par les traits, seules les formes en ont une.
+   * Image de ce qui est dessiné à l'écran, en pixels CSS : les traits tels qu'ils sont
+   * déjà peints, les contours des formes, et les blocs opaques. C'est le mur contre
+   * lequel le seau vient buter.
+   */
+  const rasterizeBoard = useCallback(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = innerWidth
+    canvas.height = innerHeight
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+
+    // Les traits sont déjà peints : on recopie leur calque plutôt que de tout refaire.
+    if (drawRef.current) {
+      ctx.drawImage(drawRef.current, 0, 0, innerWidth, innerHeight)
+    }
+
+    const { x, y, scale } = viewRef.current
+    ctx.fillStyle = '#000'
+    ctx.strokeStyle = '#000'
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+
+    for (const item of docRef.current.items) {
+      // Les zones de groupe, les cadres et les gommettes ne barrent pas le passage.
+      if (item.type === 'group' || item.type === 'frame' || item.type === 'dot') continue
+
+      if (item.type === 'shape') {
+        const nodes = nodesOf(item)
+        if (nodes.length < 2) continue
+        const pad = Math.max(1, item.strokeWidth ?? 3) / 2 + 1
+        const project = (point) => ({
+          x: (item.x + pad + point.x * Math.max(0, item.w - pad * 2)) * scale + x,
+          y: (item.y + pad + point.y * Math.max(0, item.h - pad * 2)) * scale + y,
+        })
+        ctx.lineWidth = Math.max(1, (item.strokeWidth ?? 3) * scale)
+        const path = new Path2D(pathData(nodes, isClosed(item), project))
+        ctx.stroke(path)
+        if (item.filled) ctx.fill(path)
+        continue
+      }
+
+      ctx.fillRect(item.x * scale + x, item.y * scale + y, item.w * scale, item.h * scale)
+    }
+
+    return ctx.getImageData(0, 0, innerWidth, innerHeight)
+  }, [])
+
+  /** Le point est-il à l'intérieur du tracé de cette forme, et pas seulement de sa boîte ? */
+  const insideShape = useCallback((item, point) => {
+    if (item.type !== 'shape' || !isClosed(item)) return false
+    const nodes = nodesOf(item)
+    if (nodes.length < 3) return false
+    const pad = Math.max(1, item.strokeWidth ?? 3) / 2 + 1
+    const project = (entry) => ({
+      x: item.x + pad + entry.x * Math.max(0, item.w - pad * 2),
+      y: item.y + pad + entry.y * Math.max(0, item.h - pad * 2),
+    })
+    const probe = document.createElement('canvas').getContext('2d')
+    return probe.isPointInPath(new Path2D(pathData(nodes, true, project)), point.x, point.y)
+  }, [])
+
+  /**
+   * Seau. Une forme fermée cliquée en plein milieu se remplit elle-même — c'est son
+   * fond, pas une tache posée dessus. Partout ailleurs, la peinture se répand depuis le
+   * point cliqué jusqu'à buter sur ce qui est dessiné, et le contour de la tache devient
+   * une forme : elle reste nette à tous les zooms, et se retouche comme les autres.
    */
   const fillAt = useCallback(
-    (point) => {
-      const items = docRef.current.items
-      const target = [...items].reverse().find((item) => {
-        if (item.type === 'dot' || item.type === 'frame') return false
-        if (!contains(item, point)) return false
-        // Une forme ouverte n'a pas d'intérieur à remplir.
-        return item.type !== 'shape' || isClosed(item)
-      })
-      if (!target) return
+    (screen, point) => {
+      const shape = [...docRef.current.items]
+        .reverse()
+        .find((item) => insideShape(item, point))
+      if (shape) {
+        // Le seau peint franchement, là où la case « remplir » ne fait que teinter.
+        changeItem(shape.id, { color: colorRef.current, filled: true, solid: true }, true)
+        return
+      }
 
-      changeItem(
-        target.id,
-        target.type === 'shape'
-          ? { color: colorRef.current, filled: true }
-          : { color: colorRef.current },
-        true,
+      const image = rasterizeBoard()
+      const result = floodFill(
+        image.data,
+        image.width,
+        image.height,
+        Math.round(screen.x),
+        Math.round(screen.y),
       )
+
+      if (result.blocked) return
+      if (result.escaped || !result.filled) {
+        setNotice('Zone ouverte : la peinture s’échappe')
+        setTimeout(() => setNotice(null), 1800)
+        return
+      }
+
+      const outline = traceOutline(result.mask, image.width, image.height)
+      if (outline.length < 8) return
+
+      // Retour au monde, puis dégrossissage : le contour suit les pixels, il n'a pas
+      // besoin d'un point par pixel.
+      const { x, y, scale } = viewRef.current
+      const world = outline.map((pixel) => ({
+        x: (pixel.x - x) / scale,
+        y: (pixel.y - y) / scale,
+      }))
+      const corners = simplifyPoints(world, 1.2 / scale)
+      if (corners.length < 3) return
+
+      const xs = corners.map((point_) => point_.x)
+      const ys = corners.map((point_) => point_.y)
+      const minX = Math.min(...xs)
+      const minY = Math.min(...ys)
+      const w = Math.max(1, Math.max(...xs) - minX)
+      const h = Math.max(1, Math.max(...ys) - minY)
+
+      addItems([
+        {
+          id: newId(),
+          type: 'shape',
+          kind: 'free',
+          color: colorRef.current,
+          strokeWidth: 1,
+          filled: true,
+          solid: true,
+          closed: true,
+          nodes: corners.map((point_) => ({
+            x: (point_.x - minX) / w,
+            y: (point_.y - minY) / h,
+            in: null,
+            out: null,
+          })),
+          x: Math.round(minX),
+          y: Math.round(minY),
+          w: Math.round(w),
+          h: Math.round(h),
+        },
+      ])
     },
-    [changeItem],
+    [addItems, changeItem, insideShape, rasterizeBoard],
   )
 
   /**
@@ -2195,7 +2311,11 @@ export default function Whiteboard() {
     }
 
     if (current === 'bucket') {
-      fillAt(toWorld(event.clientX, event.clientY))
+      const rect = containerRef.current.getBoundingClientRect()
+      fillAt(
+        { x: event.clientX - rect.left, y: event.clientY - rect.top },
+        toWorld(event.clientX, event.clientY),
+      )
       return
     }
 
