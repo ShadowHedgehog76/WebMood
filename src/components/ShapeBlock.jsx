@@ -66,19 +66,30 @@ export default function ShapeBlock({ item }) {
         />
       )}
 
-      {(item.kind === 'line' || item.kind === 'arrow') && (
-        <>
-          <path d={`M${pad} ${bottom} L${right} ${pad}`} {...common} fill="none" />
-          {item.kind === 'arrow' && (
-            <path
-              d={arrowHead(pad, bottom, right, pad, Math.max(HEAD, stroke * 3.5))}
-              {...common}
-              fill={item.color}
-              fillOpacity="1"
-            />
-          )}
-        </>
-      )}
+      {(item.kind === 'line' || item.kind === 'arrow') &&
+        (() => {
+          // Sans repères enregistrés, on garde le tracé historique : bas-gauche vers haut-droite.
+          const ends = item.ends ?? { a: { x: 0, y: 1 }, b: { x: 1, y: 0 } }
+          const at = (point) => ({
+            x: pad + point.x * Math.max(0, w - pad * 2),
+            y: pad + point.y * Math.max(0, h - pad * 2),
+          })
+          const a = at(ends.a)
+          const b = at(ends.b)
+          return (
+            <>
+              <path d={`M${a.x} ${a.y} L${b.x} ${b.y}`} {...common} fill="none" />
+              {item.kind === 'arrow' && (
+                <path
+                  d={arrowHead(a.x, a.y, b.x, b.y, Math.max(HEAD, stroke * 3.5))}
+                  {...common}
+                  fill={item.color}
+                  fillOpacity="1"
+                />
+              )}
+            </>
+          )
+        })()}
     </svg>
   )
 }

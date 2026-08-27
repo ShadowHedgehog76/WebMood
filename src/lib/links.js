@@ -7,6 +7,12 @@ export const ARROW_STYLES = [
   { key: 'both', label: '↔', title: 'Flèche des deux côtés' },
 ]
 
+export const LINK_STYLES = [
+  { key: 'curve', title: 'Trait courbe' },
+  { key: 'elbow', title: 'Trait en équerre' },
+  { key: 'straight', title: 'Trait droit' },
+]
+
 export const ANCHOR_SIDES = ['left', 'right', 'top', 'bottom', 'center']
 const SNAP_DISTANCE = 26 // en pixels écran
 
@@ -72,6 +78,76 @@ function normalize(x, y) {
 export function linkGeometry(from, to) {
   const [fromSide, toSide] = sides(from, to)
   return geometryBetween(from, to, fromSide, toSide)
+}
+
+/** Chemin passant par une suite de points, les angles adoucis. */
+function polylinePath(points, radius = 10) {
+  const parts = [`M ${points[0].x} ${points[0].y}`]
+  for (let i = 1; i < points.length - 1; i++) {
+    const previous = points[i - 1]
+    const corner = points[i]
+    const next = points[i + 1]
+    const before = normalize(previous.x - corner.x, previous.y - corner.y)
+    const after = normalize(next.x - corner.x, next.y - corner.y)
+    const r = Math.min(
+      radius,
+      Math.hypot(corner.x - previous.x, corner.y - previous.y) / 2,
+      Math.hypot(next.x - corner.x, next.y - corner.y) / 2,
+    )
+    parts.push(`L ${corner.x + before.x * r} ${corner.y + before.y * r}`)
+    parts.push(`Q ${corner.x} ${corner.y} ${corner.x + after.x * r} ${corner.y + after.y * r}`)
+  }
+  parts.push(`L ${points.at(-1).x} ${points.at(-1).y}`)
+  return parts.join(' ')
+}
+
+/** Géométrie d'une suite de points : mêmes champs qu'une courbe, tangentes comprises. */
+function polyline(points, radius) {
+  const start = points[0]
+  const end = points.at(-1)
+  return {
+    points,
+    radius,
+    d: polylinePath(points, radius),
+    start,
+    end,
+    startDir: normalize(start.x - points[1].x, start.y - points[1].y),
+    endDir: normalize(end.x - points.at(-2).x, end.y - points.at(-2).y),
+  }
+}
+
+/**
+ * Liaison en équerre : on sort perpendiculairement au bloc, on fait la moitié du chemin,
+ * puis on rejoint l'autre bord. C'est le tracé des schémas d'architecture.
+ */
+export function orthoGeometry(from, to) {
+  const [fromSide, toSide] = sides(from, to)
+  const start = anchor(from, fromSide)
+  const end = anchor(to, toSide)
+  const horizontal = fromSide === 'left' || fromSide === 'right'
+
+  const points = horizontal
+    ? [start, { x: (start.x + end.x) / 2, y: start.y }, { x: (start.x + end.x) / 2, y: end.y }, end]
+    : [start, { x: start.x, y: (start.y + end.y) / 2 }, { x: end.x, y: (start.y + end.y) / 2 }, end]
+
+  // Deux points confondus donneraient une tangente au hasard : on les retire.
+  const kept = points.filter(
+    (point, index) => index === 0 || Math.hypot(point.x - points[index - 1].x, point.y - points[index - 1].y) > 0.5,
+  )
+  return polyline(kept.length > 1 ? kept : [start, end], 10)
+}
+
+/** Liaison droite, de bord à bord. */
+export function straightGeometry(from, to) {
+  const [fromSide, toSide] = sides(from, to)
+  return polyline([anchor(from, fromSide), anchor(to, toSide)], 0)
+}
+
+/** Géométrie d'une connexion selon le style choisi. */
+export function geometryFor(style, from, to) {
+  if (style === 'elbow') return orthoGeometry(from, to)
+  if (style === 'straight') return straightGeometry(from, to)
+  return linkGeometry(from, to)
 }
 
 /** Courbe entre deux blocs, avec des côtés d'ancrage imposés (branches de carte mentale). */
@@ -262,6 +338,11 @@ export function pathWithArrows(geometry, arrow, width, connected = {}) {
     arrow === 'end' || arrow === 'both'
       ? back(geometry.end, geometry.endDir, connected.end)
       : geometry.end
+
+  // Tracé anguleux : on remplace seulement ses extrémités, les coudes ne bougent pas.
+  if (geometry.points) {
+    return polylinePath([start, ...geometry.points.slice(1, -1), end], geometry.radius)
+  }
 
   return `M ${start.x} ${start.y} C ${geometry.c1.x} ${geometry.c1.y}, ${geometry.c2.x} ${geometry.c2.y}, ${end.x} ${end.y}`
 }

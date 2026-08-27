@@ -33,12 +33,14 @@ import { branches, childrenOf, layoutTree, progressOf, rootOf, subtree } from '.
 import {
   CLOSED,
   DEFAULT_SHAPE_SIZE,
+  endsFrom,
   DRAWN,
   constrain,
   freeShape,
   isTooSmall,
   normalizeRect,
   shapeItem,
+  straighten,
 } from '../lib/shapes.js'
 import { alignItems } from '../lib/align.js'
 import {
@@ -164,6 +166,7 @@ export default function Whiteboard() {
   const [size, setSize] = useState(SIZES[1])
   const [markerSize, setMarkerSize] = useState(20)
   const [eraserMode, setEraserMode] = useState('pixel') // 'pixel' ou 'stroke'
+  const [linkStyle, setLinkStyle] = useState('curve') // 'curve', 'elbow' ou 'straight'
   const [arrow, setArrow] = useState('end')
   const [shape, setShape] = useState('rect')
   const [filled, setFilled] = useState(false)
@@ -216,6 +219,7 @@ export default function Whiteboard() {
   const erasing = useRef(false)
   const erasingRef = useRef(false)
   const arrowRef = useRef(arrow)
+  const linkStyleRef = useRef(linkStyle)
   const shapeRef = useRef(shape)
   const filledRef = useRef(filled)
   const draftRef = useRef(null)
@@ -230,6 +234,7 @@ export default function Whiteboard() {
   markerRef.current = markerSize
   eraserModeRef.current = eraserMode
   arrowRef.current = arrow
+  linkStyleRef.current = linkStyle
   shapeRef.current = shape
   filledRef.current = filled
   pendingRef.current = pending
@@ -1862,6 +1867,7 @@ export default function Whiteboard() {
         from,
         to: id,
         arrow: arrowRef.current,
+        style: linkStyleRef.current,
         color: colorRef.current,
         width: 2,
       }
@@ -2200,6 +2206,7 @@ export default function Whiteboard() {
           id: newId(),
           kind: shapeRef.current,
           rect,
+          ends: endsFrom(sketchDraft.from, sketchDraft.to),
           color: colorRef.current,
           strokeWidth: sizeRef.current,
           filled: filledRef.current,
@@ -2336,7 +2343,11 @@ export default function Whiteboard() {
 
   const deleteSelection = useCallback(() => {
     if (selection.link) deleteLink(selection.link)
-    for (const id of selection.items) deleteItem(id)
+    // Le verrou protège aussi de la suppression : c'est tout son intérêt.
+    const locked = new Set(
+      docRef.current.items.filter((item) => item.locked).map((item) => item.id),
+    )
+    for (const id of selection.items) if (!locked.has(id)) deleteItem(id)
   }, [selection, deleteItem, deleteLink])
 
   useEffect(() => {
@@ -2506,6 +2517,14 @@ export default function Whiteboard() {
   const selectedItemId = selectedIds.length === 1 ? selectedIds[0] : null
   const selectedLinkId = selection.link
   const showArrows = linking || Boolean(selectedLinkId)
+  const selectedItem = useMemo(
+    () => doc.items.find((item) => item.id === selectedItemId) ?? null,
+    [doc.items, selectedItemId],
+  )
+  const selectedLink = useMemo(
+    () => doc.links.find((link) => link.id === selectedLinkId) ?? null,
+    [doc.links, selectedLinkId],
+  )
 
   const nodes = useMemo(() => doc.items.filter((item) => item.type === 'node'), [doc.items])
 
@@ -2673,9 +2692,34 @@ export default function Whiteboard() {
     if (selectedLinkId) changeLink(selectedLinkId, { arrow: value })
   }
 
+  const pickLinkStyle = (value) => {
+    setLinkStyle(value)
+    if (selectedLinkId) changeLink(selectedLinkId, { style: value })
+  }
+
+  /** Un bloc verrouillé reste visible et sélectionnable, mais plus rien ne le déplace. */
+  const toggleLock = () => {
+    if (!selectedItem) return
+    changeItem(selectedItem.id, { locked: !selectedItem.locked }, true)
+  }
+
+  /** Le gribouillis devient la forme nette qu'il dessinait — ou reste tel quel. */
+  const straightenShape = () => {
+    if (!selectedShape) return
+    const patch = straighten(selectedShape)
+    if (!patch) {
+      setTip({ label: 'Tracé non reconnu', x: innerWidth / 2, y: innerHeight - 150 })
+      setTimeout(() => setTip(null), 1400)
+      return
+    }
+    animated(() => changeItem(selectedShape.id, patch, true))
+  }
+
   // Infobulles maison : un petit texte qui suit la souris, à la place des raccourcis
   // autrefois affichés en permanence sur le tableau.
   const tipProps = (label, shortcut) => ({
+    // Les boutons n'ont qu'une icône : sans nom accessible, ils sont muets au lecteur d'écran.
+    'aria-label': shortcut ? `${label} (${shortcut})` : label,
     onPointerEnter: (event) => setTip({ label, shortcut, x: event.clientX, y: event.clientY }),
     onPointerMove: (event) =>
       setTip((current) => (current ? { ...current, x: event.clientX, y: event.clientY } : current)),
@@ -2731,7 +2775,8 @@ export default function Whiteboard() {
               soloSelected={selectedItemId === item.id}
               editing={editingId === item.id}
               interactive={interactive}
-              draggable={tool === 'select'}
+              draggable={tool === 'select' && !item.locked}
+              locked={Boolean(item.locked)}
               linkTarget={linking}
               tween={tween}
               toWorld={toWorld}
@@ -2826,6 +2871,7 @@ export default function Whiteboard() {
                 id: 'draft',
                 kind: shape,
                 rect,
+                ends: endsFrom(draft.from, draft.to),
                 color,
                 strokeWidth: size,
                 filled,
@@ -2931,11 +2977,14 @@ export default function Whiteboard() {
         markerSize={markerSize}
         eraserMode={eraserMode}
         arrow={arrow}
+        linkStyle={selectedLink?.style ?? linkStyle}
+        isArc={selectedLink?.kind === 'arc'}
         filled={filled}
         textSizes={TEXT_SIZES}
         history={history}
         tipProps={tipProps}
         selectedCount={selectedIds.length}
+        selectedItem={selectedItem}
         selectedShape={selectedShape}
         selectedGroup={selectedGroup}
         selectedText={selectedText}
@@ -2956,6 +3005,9 @@ export default function Whiteboard() {
           setEraserMode,
           pickTextSize,
           pickArrow,
+          pickLinkStyle,
+          toggleLock,
+          straightenShape,
           toggleFill,
           toggleTextVariant,
           setSketchMode,

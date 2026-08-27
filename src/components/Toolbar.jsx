@@ -1,6 +1,6 @@
 import ContextBar from './ContextBar.jsx'
 import { ALIGNMENTS } from '../lib/align.js'
-import { ARROW_STYLES } from '../lib/links.js'
+import { ARROW_STYLES, LINK_STYLES } from '../lib/links.js'
 import { COLOR_ROWS, NEUTRAL_ROW, QUICK_COLORS } from '../lib/palette.js'
 import { CLOSED, SHAPES } from '../lib/shapes.js'
 import { MINDMAP_LAYOUTS } from '../lib/mindmap.js'
@@ -22,6 +22,8 @@ import {
   IconImage,
   IconLine,
   IconLink,
+  IconLinkStyle,
+  IconLock,
   IconMarker,
   IconMindmap,
   IconNote,
@@ -34,6 +36,7 @@ import {
   IconStrokeEraser,
   IconSketch,
   IconSquare,
+  IconStraighten,
   IconText,
   IconTrash,
   IconTriangle,
@@ -74,11 +77,14 @@ export default function Toolbar({
   markerSize,
   eraserMode,
   arrow,
+  linkStyle,
+  isArc,
   filled,
   textSizes,
   history,
   tipProps,
   selectedCount,
+  selectedItem,
   selectedShape,
   selectedGroup,
   selectedText,
@@ -213,6 +219,19 @@ export default function Toolbar({
               />
             </button>
           ))}
+          {/* Un arc suit ses propres poignées : le choix du tracé ne le concerne pas. */}
+          {!isArc && separator}
+          {!isArc &&
+            LINK_STYLES.map((style) => (
+              <button
+                key={style.key}
+                className={`chip chip--icon ${linkStyle === style.key ? 'is-active' : ''}`}
+                onClick={() => actions.pickLinkStyle(style.key)}
+                {...tipProps(style.title)}
+              >
+                <IconLinkStyle size={18} style={style.key} />
+              </button>
+            ))}
         </>
       )
     }
@@ -312,6 +331,15 @@ export default function Toolbar({
             )
           })}
           {separator}
+          {selectedShape?.kind === 'free' && (
+            <button
+              className="chip chip--icon"
+              onClick={actions.straightenShape}
+              {...tipProps('Redresser le tracé')}
+            >
+              <IconStraighten size={17} />
+            </button>
+          )}
           {CLOSED.has(kind) && (
             <button
               className={`chip chip--icon ${(selectedShape ? selectedShape.filled : filled) ? 'is-active' : ''}`}
@@ -378,9 +406,31 @@ export default function Toolbar({
     return null
   })()
 
+  // Le verrou vaut pour n'importe quel bloc : il ouvre la barre, et quand il est mis
+  // il reste seul — un bloc verrouillé n'a plus de réglage à offrir.
+  const lock = selectedItem ? (
+    <>
+      <button
+        className={`chip chip--icon ${selectedItem.locked ? 'is-active' : ''}`}
+        onClick={actions.toggleLock}
+        {...tipProps(selectedItem.locked ? 'Déverrouiller' : 'Verrouiller le bloc')}
+      >
+        <IconLock size={17} open={!selectedItem.locked} />
+      </button>
+      {!selectedItem.locked && settings && separator}
+    </>
+  ) : null
+
+  const bar = selectedItem?.locked ? lock : (lock || settings) && (
+    <>
+      {lock}
+      {settings}
+    </>
+  )
+
   return (
     <>
-      <ContextBar visible={Boolean(settings)}>{settings}</ContextBar>
+      <ContextBar visible={Boolean(bar)}>{bar}</ContextBar>
 
       <div className="toolbar">
       <div className="toolbar__group">

@@ -360,3 +360,31 @@ export const IconArrowStyle = ({ start, end, ...props }) => (
     {end && <path d="m15 8 4 4-4 4" />}
   </Icon>
 )
+
+export const IconLock = ({ open = false, ...props }) => (
+  <Icon {...props}>
+    <rect x="4.5" y="10.5" width="15" height="9.5" rx="2" />
+    {open ? <path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 6.8-1.2" /> : <path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3" />}
+    <path d="M12 14v2.5" />
+  </Icon>
+)
+
+/** Aperçu du tracé d'une connexion : courbe, équerre ou droite. */
+export const IconLinkStyle = ({ style = 'curve', ...props }) => (
+  <Icon {...props}>
+    {style === 'curve' && <path d="M4 18C4 9 20 15 20 6" />}
+    {style === 'elbow' && <path d="M4 18h7V6h9" />}
+    {style === 'straight' && <path d="M4 18 20 6" />}
+    <circle cx="4" cy="18" r="1.8" fill="currentColor" stroke="none" />
+    <circle cx="20" cy="6" r="1.8" fill="currentColor" stroke="none" />
+  </Icon>
+)
+
+/** Redresser un tracé : la baguette qui transforme le gribouillis en forme nette. */
+export const IconStraighten = (props) => (
+  <Icon {...props}>
+    <path d="M3 21 14.5 9.5" />
+    <path d="m16.5 3.2 1 2.3 2.3 1-2.3 1-1 2.3-1-2.3-2.3-1 2.3-1Z" fill="currentColor" strokeWidth="1.2" />
+    <path d="M6.5 4v3M5 5.5h3" />
+  </Icon>
+)

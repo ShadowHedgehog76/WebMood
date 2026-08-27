@@ -5,7 +5,7 @@ import {
   arcPath,
   controlsOf,
   arrowHead,
-  linkGeometry,
+  geometryFor,
   pathWithArrows,
   pendingGeometry,
   resolveEnd,
@@ -110,7 +110,7 @@ function Links({ links, items, branches, view, selectedId, interactive, pending,
         const to = byId.get(link.to)
         if (!from || !to) return null
 
-        const geometry = linkGeometry(toScreen(from, view), toScreen(to, view))
+        const geometry = geometryFor(link.style, toScreen(from, view), toScreen(to, view))
 
         return (
           <g key={link.id} className={`link ${selected ? 'is-selected' : ''}`}>

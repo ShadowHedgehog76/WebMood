@@ -158,3 +158,29 @@
 .item__delete:hover {
   background: #e5484d;
 }
+
+/* Verrou : un simple cachet dans le coin, visible seulement sur la sélection. */
+.item__lock {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-40%, -40%) scale(var(--inv));
+  transform-origin: top left;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #1c1c1e;
+  color: #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.28);
+  animation: lock-pop 0.22s ease;
+}
+
+.item.is-locked.is-selected {
+  cursor: default;
+}
+
+@keyframes lock-pop {
+  from { transform: translate(-40%, -40%) scale(calc(var(--inv) * 0.4)); opacity: 0; }
+}

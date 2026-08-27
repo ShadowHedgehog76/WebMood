@@ -4,6 +4,7 @@ import MindNode from './MindNode.jsx'
 import ShapeBlock from './ShapeBlock.jsx'
 import TextBlock from './TextBlock.jsx'
 import SketchBlock from './SketchBlock.jsx'
+import { IconLock } from './Icons.jsx'
 import { highlight } from '../lib/highlight.js'
 import './BoardItem.css'
 
@@ -26,6 +27,7 @@ function BoardItem({
   editing,
   interactive,
   draggable,
+  locked,
   linkTarget,
   tween,
   toWorld,
@@ -127,6 +129,7 @@ function BoardItem({
         selected ? 'is-selected' : '',
         editing ? 'is-editing' : '',
         linkTarget ? 'is-link-target' : '',
+        locked ? 'is-locked' : '',
         tween ? 'is-tween' : '',
       ]
         .filter(Boolean)
@@ -159,6 +162,12 @@ function BoardItem({
         onMenu(item, { x: event.clientX, y: event.clientY })
       }}
     >
+      {locked && selected && (
+        <span className="item__lock" title="Bloc verrouillé">
+          <IconLock size={13} />
+        </span>
+      )}
+
       {item.type === 'image' && <img src={item.src} alt={item.name} draggable={false} />}
 
       {item.type === 'group' && <GroupBlock item={item} />}
