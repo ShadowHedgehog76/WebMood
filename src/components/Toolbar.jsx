@@ -7,6 +7,7 @@ import { MINDMAP_LAYOUTS } from '../lib/mindmap.js'
 import { SKETCH_MODES } from '../lib/sketch.js'
 import {
   IconAlign,
+  IconBrush,
   IconArc,
   IconArrow,
   IconArrowStyle,
@@ -31,6 +32,7 @@ import {
   IconNote,
   IconOutline,
   IconRadial,
+  IconRowPlus,
   IconTree,
   IconPen,
   IconPicker,
@@ -40,6 +42,7 @@ import {
   IconSketch,
   IconSquare,
   IconStraighten,
+  IconTable,
   IconText,
   IconTimer,
   IconTrash,
@@ -92,6 +95,8 @@ export default function Toolbar({
   selectedItem,
   frameCount,
   timerOpen,
+  styleReady,
+  selectedTable,
   selectedShape,
   selectedGroup,
   selectedText,
@@ -195,7 +200,18 @@ export default function Toolbar({
   // Réglages du moment : ils dépendent de la sélection, ou à défaut de l'outil actif.
   const settings = (() => {
     if (selectedCount > 1) {
-      return ALIGNMENTS.map((option) => (
+      return [
+        styleReady ? (
+          <button
+            key="style"
+            className="chip chip--icon"
+            onClick={actions.pasteStyle}
+            {...tipProps('Appliquer le style copié')}
+          >
+            <IconBrush size={17} paste />
+          </button>
+        ) : null,
+        ...ALIGNMENTS.map((option) => (
         <button
           key={option.key}
           className="chip chip--icon"
@@ -204,7 +220,8 @@ export default function Toolbar({
         >
           <IconAlign mode={option.key} size={17} />
         </button>
-      ))
+        )),
+      ].filter(Boolean)
     }
 
     if (showArrows) {
@@ -299,6 +316,43 @@ export default function Toolbar({
           {meta.label}
         </button>
       ))
+    }
+
+    if (selectedTable) {
+      return (
+        <>
+          {colorButton}
+          {separator}
+          <button
+            className="chip chip--icon"
+            onClick={() => actions.resizeTable('row', 1)}
+            {...tipProps('Ajouter une ligne')}
+          >
+            <IconRowPlus size={17} />
+          </button>
+          <button
+            className="chip chip--icon"
+            onClick={() => actions.resizeTable('row', -1)}
+            {...tipProps('Retirer une ligne')}
+          >
+            <IconRowPlus size={17} minus />
+          </button>
+          <button
+            className="chip chip--icon"
+            onClick={() => actions.resizeTable('column', 1)}
+            {...tipProps('Ajouter une colonne')}
+          >
+            <IconRowPlus size={17} column />
+          </button>
+          <button
+            className="chip chip--icon"
+            onClick={() => actions.resizeTable('column', -1)}
+            {...tipProps('Retirer une colonne')}
+          >
+            <IconRowPlus size={17} column minus />
+          </button>
+        </>
+      )
     }
 
     if (selectedText) {
@@ -418,8 +472,30 @@ export default function Toolbar({
 
   // Le verrou vaut pour n'importe quel bloc : il ouvre la barre, et quand il est mis
   // il reste seul — un bloc verrouillé n'a plus de réglage à offrir.
+  const brush = (
+    <>
+      <button
+        className="chip chip--icon"
+        onClick={actions.copyStyle}
+        {...tipProps('Copier le style')}
+      >
+        <IconBrush size={17} />
+      </button>
+      {styleReady && (
+        <button
+          className="chip chip--icon"
+          onClick={actions.pasteStyle}
+          {...tipProps('Appliquer le style copié')}
+        >
+          <IconBrush size={17} paste />
+        </button>
+      )}
+    </>
+  )
+
   const lock = selectedItem ? (
     <>
+      {brush}
       <button
         className={`chip chip--icon ${selectedItem.locked ? 'is-active' : ''}`}
         onClick={actions.toggleLock}
@@ -546,6 +622,9 @@ export default function Toolbar({
         </button>
         <button className="tool" onClick={actions.addCodeBlock} {...tipProps('Bloc de code')}>
           <IconCode />
+        </button>
+        <button className="tool" onClick={actions.addTable} {...tipProps('Tableau')}>
+          <IconTable />
         </button>
         <button
           className="tool"

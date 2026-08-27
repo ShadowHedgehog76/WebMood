@@ -146,6 +146,23 @@ export function textItem({ at = { x: 0, y: 0 }, color = '#f5a623', variant = 'no
   }
 }
 
+const TABLE_SIZE = { w: 460, h: 200 }
+
+/** Tableau : une grille de cellules, la première ligne servant d'en-tête. */
+export function tableItem({ at = { x: 0, y: 0 }, columns = 3, rows = 3, color = '#3b82f6' } = {}) {
+  return {
+    id: newId(),
+    type: 'table',
+    color,
+    cells: Array.from({ length: rows }, (_, row) =>
+      Array.from({ length: columns }, (_, column) => (row === 0 ? `Colonne ${column + 1}` : '')),
+    ),
+    x: Math.round(at.x - TABLE_SIZE.w / 2),
+    y: Math.round(at.y - TABLE_SIZE.h / 2),
+    ...TABLE_SIZE,
+  }
+}
+
 /** Nœud de carte mentale. Sans parent, c'est le nœud principal. */
 export function nodeItem({
   at = { x: 0, y: 0 },

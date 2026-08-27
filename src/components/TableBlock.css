@@ -1,0 +1,58 @@
+/* Tableau : lignes et colonnes à parts égales, en-tête teinté. */
+.table {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid rgb(28 28 30 / 0.14);
+  border-radius: inherit;
+  background: #fff;
+  overflow: hidden;
+}
+
+.table__row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.table__row + .table__row {
+  border-top: 1px solid rgb(28 28 30 / 0.09);
+}
+
+/* Hors édition, les cellules laissent passer le pointeur : c'est le bloc qu'on attrape. */
+.table:not(.is-editing) .table__cell {
+  pointer-events: none;
+  user-select: none;
+}
+
+.table__cell {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  color: #1c1c1e;
+}
+
+.table__cell + /* Hors édition, les cellules laissent passer le pointeur : c'est le bloc qu'on attrape. */
+.table:not(.is-editing) .table__cell {
+  pointer-events: none;
+  user-select: none;
+}
+
+.table__cell {
+  border-left: 1px solid rgb(28 28 30 / 0.09);
+}
+
+.table__cell:focus {
+  background: rgb(59 130 246 / 0.07);
+}
+
+.table__cell--head {
+  background: color-mix(in srgb, var(--tint) 12%, #fff);
+  font-weight: 600;
+  color: var(--tint);
+}

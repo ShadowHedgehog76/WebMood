@@ -425,3 +425,39 @@ export const IconTimer = (props) => (
     <path d="M9.5 2.8h5" />
   </Icon>
 )
+
+export const IconTable = (props) => (
+  <Icon {...props}>
+    <rect x="3.5" y="5" width="17" height="14" rx="2" />
+    <path d="M3.5 9.5h17M9.5 9.5V19M15 9.5V19" />
+  </Icon>
+)
+
+export const IconBrush = ({ paste = false, ...props }) => (
+  <Icon {...props}>
+    <path d="M8.5 14.5 15.8 4.9a2 2 0 0 1 3.2 2.4L11.6 17" />
+    <path d="M8.5 14.5 11.6 17" />
+    {paste ? (
+      <path d="M4 21c1.6 0 2.6-.7 3.2-1.8.5-1-.2-2.2-1.3-2.2-1 0-1.9.8-1.9 1.9 0 .9-.6 1.6-1 2.1Z" fill="currentColor" strokeWidth="1.2" />
+    ) : (
+      <path d="M4 21c1.6 0 2.6-.7 3.2-1.8.5-1-.2-2.2-1.3-2.2-1 0-1.9.8-1.9 1.9 0 .9-.6 1.6-1 2.1Z" />
+    )}
+  </Icon>
+)
+
+export const IconRowPlus = ({ minus = false, column = false, ...props }) => (
+  <Icon {...props}>
+    {column ? (
+      <>
+        <rect x="3.5" y="5" width="17" height="14" rx="2" />
+        <path d="M12 5v14" />
+      </>
+    ) : (
+      <>
+        <rect x="3.5" y="5" width="17" height="14" rx="2" />
+        <path d="M3.5 12h17" />
+      </>
+    )}
+    <path d={minus ? 'M15.5 21.5h5' : 'M18 19v5M15.5 21.5h5'} />
+  </Icon>
+)

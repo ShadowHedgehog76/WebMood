@@ -30,6 +30,7 @@ import {
   newId,
   nodeItem,
   sketchItem,
+  tableItem,
   textItem,
 } from '../lib/files.js'
 import { autoLayout, contains, groupFor } from '../lib/groups.js'
@@ -1464,6 +1465,36 @@ export default function Whiteboard() {
     [commit, animated],
   )
 
+  const addTable = useCallback(() => {
+    addItems([tableItem({ at: viewportCenter(), color: colorRef.current })])
+  }, [addItems, viewportCenter])
+
+  /** Ajoute ou retire une ligne (ou une colonne) au tableau sélectionné. */
+  const resizeTable = useCallback(
+    (what, delta) => {
+      const table = selectionRef.current.items[0]
+      if (!table) return
+      changeItem(
+        table,
+        (() => {
+          const item = docRef.current.items.find((candidate) => candidate.id === table)
+          const cells = item.cells.map((line) => [...line])
+          if (what === 'row') {
+            if (delta > 0) cells.push(cells[0].map(() => ''))
+            else if (cells.length > 1) cells.pop()
+          } else if (delta > 0) {
+            for (const line of cells) line.push('')
+          } else if (cells[0].length > 1) {
+            for (const line of cells) line.pop()
+          }
+          return { cells }
+        })(),
+        true,
+      )
+    },
+    [changeItem],
+  )
+
   const addCodeBlock = useCallback(() => {
     const item = codeItem('// Collez ou tapez votre code ici\n', {
       name: 'extrait',
@@ -2403,6 +2434,47 @@ export default function Whiteboard() {
     return () => el.removeEventListener('wheel', onWheel)
   }, [scheduleFrame])
 
+  /* ---------- style repris d'un bloc à l'autre ---------- */
+
+  const styleClip = useRef(null)
+  const [styleReady, setStyleReady] = useState(false)
+
+  /** Retient l'allure du bloc sélectionné : couleur, épaisseur, remplissage, taille. */
+  const copyStyle = useCallback(() => {
+    const item = docRef.current.items.find(
+      (candidate) => candidate.id === selectionRef.current.items[0],
+    )
+    if (!item) return
+    styleClip.current = {
+      color: item.color,
+      strokeWidth: item.strokeWidth,
+      filled: item.filled,
+      size: item.size,
+      variant: item.variant,
+    }
+    setStyleReady(true)
+  }, [])
+
+  /** Applique l'allure retenue, en ne gardant que ce qui a un sens pour chaque bloc. */
+  const pasteStyle = useCallback(() => {
+    const style = styleClip.current
+    if (!style) return
+    const chosen = new Set(selectionRef.current.items)
+    commit((d) => ({
+      ...d,
+      items: d.items.map((item) => {
+        if (!chosen.has(item.id)) return item
+        const patch = { color: style.color ?? item.color }
+        if (item.type === 'shape' && style.strokeWidth !== undefined) {
+          patch.strokeWidth = style.strokeWidth
+          patch.filled = Boolean(style.filled) && CLOSED.has(item.kind)
+        }
+        if (item.type === 'text' && style.size !== undefined) patch.size = style.size
+        return { ...item, ...patch }
+      }),
+    }))
+  }, [commit])
+
   /* ---------- gommettes de vote ---------- */
 
   const VOTE_SIZE = 26
@@ -3228,6 +3300,8 @@ export default function Whiteboard() {
         selectedItem={selectedItem}
         frameCount={frames.length}
         timerOpen={showTimer}
+        styleReady={styleReady}
+        selectedTable={selectedItem?.type === 'table' ? selectedItem : null}
         selectedShape={selectedShape}
         selectedGroup={selectedGroup}
         selectedText={selectedText}
@@ -3253,6 +3327,10 @@ export default function Whiteboard() {
           straightenShape,
           present: () => showFrame(0),
           toggleTimer: () => setShowTimer((open) => !open),
+          addTable,
+          resizeTable,
+          copyStyle,
+          pasteStyle,
           toggleFill,
           toggleTextVariant,
           setSketchMode,

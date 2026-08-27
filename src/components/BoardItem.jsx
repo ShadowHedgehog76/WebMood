@@ -3,6 +3,7 @@ import FrameBlock from './FrameBlock.jsx'
 import GroupBlock from './GroupBlock.jsx'
 import MindNode from './MindNode.jsx'
 import ShapeBlock from './ShapeBlock.jsx'
+import TableBlock from './TableBlock.jsx'
 import TextBlock from './TextBlock.jsx'
 import SketchBlock from './SketchBlock.jsx'
 import { IconLock } from './Icons.jsx'
@@ -15,6 +16,7 @@ const MIN_SIZES = {
   sketch: { w: 460, h: 240 },
   group: { w: 320, h: 200 },
   shape: { w: 16, h: 16 },
+  table: { w: 200, h: 70 },
   text: { w: 90, h: 48 },
   code: { w: 180, h: 90 },
   default: { w: 60, h: 60 },
@@ -153,7 +155,7 @@ function BoardItem({
       onPointerCancel={endDrag}
       onDoubleClick={(event) => {
         // Les blocs visuels ont leur éditeur toujours ouvert : rien à basculer.
-        if (!draggable || !['code', 'node', 'text'].includes(item.type)) return
+        if (!draggable || !['code', 'node', 'text', 'table'].includes(item.type)) return
         event.stopPropagation()
         onEdit(editing ? null : item.id)
       }}
@@ -182,6 +184,10 @@ function BoardItem({
       {item.type === 'group' && <GroupBlock item={item} />}
 
       {item.type === 'shape' && <ShapeBlock item={item} />}
+
+      {item.type === 'table' && (
+        <TableBlock item={item} editing={editing} onChange={onChange} onEdit={onEdit} />
+      )}
 
       {item.type === 'text' && (
         <TextBlock item={item} editing={editing} onChange={onChange} onEdit={onEdit} />
