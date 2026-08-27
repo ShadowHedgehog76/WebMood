@@ -330,9 +330,34 @@ son document qu'après avoir reçu celui de l'hôte, sinon un arrivant au tablea
 le travail de tout le monde. **Qui a le code peut rejoindre** : ne le diffusez qu'aux personnes
 concernées.
 
+### Tenir la connexion
+
+Le réseau réel coupe, ralentit, change d'adresse. Plusieurs garde-fous s'empilent
+([session.js](src/lib/session.js)) :
+
+- **Relais TURN** en plus du STUN (ports 80, 443 et 443 en TCP) : quand la liaison directe
+  est impossible — NAT strict, réseau d'entreprise, partage de connexion mobile — le flux
+  passe par le relais au lieu d'échouer. C'était la cause principale des coupures.
+- L'annuaire est maintenu au chaud (`pingInterval`), et s'il lâche, la liaison est
+  **rétablie automatiquement** sans perdre la session ni le code.
+- Une coupure entre deux personnes déclenche **trois tentatives de reconnexion au même
+  hôte** avant d'envisager quoi que ce soit d'autre : une microcoupure ne provoque plus de
+  changement d'hôte.
+- « Pair introuvable » est écouté sur l'objet peer, là où PeerJS l'émet : un hôte vraiment
+  absent est constaté tout de suite au lieu d'attendre le délai.
+- **Onglet en arrière-plan** ou retour de connexion : les minuteurs sont remis à zéro
+  (`visibilitychange`, `online`), sinon un onglet ralenti par le navigateur passait pour une
+  déconnexion.
+- Les erreurs sans gravité (pair parti, hoquet réseau) ne coupent plus la session.
+
+Pendant une reconnexion, un bandeau « Connexion instable » s'affiche ; il disparaît dès que
+la liaison est rétablie.
+
 ### Si l'hôte disparaît
 
-Un **battement de cœur** circule dans les deux sens (toutes les 2 s, silence toléré 7 s) :
+Un **battement de cœur** circule dans les deux sens (toutes les 2,5 s). Après 8 s de silence,
+on tente de se rebrancher ; ce n'est qu'après l'échec de ces tentatives — une quinzaine de
+secondes en tout — que l'hôte est déclaré perdu :
 
 - l'hôte tombe et il reste **au moins deux personnes** → le survivant au plus petit
   identifiant **reprend le même code**, les autres s'y rebranchent tout seuls (~6 s), et le

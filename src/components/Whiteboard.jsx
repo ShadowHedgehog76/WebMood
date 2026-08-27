@@ -684,6 +684,12 @@ export default function Whiteboard() {
           onPeers: setPeers,
           onMessage: receive,
           onHostLost: (info) => hostLostRef.current?.(info, code),
+          onStatus: (state) => {
+            if (state === 'reconnecting') {
+              announceNotice('Connexion instable, reconnexion en cours…', true)
+            }
+            if (state === 'ready') setNotice(null)
+          },
         })
         gotRemoteDoc.current = false
         sessionRef.current = handle
@@ -702,7 +708,7 @@ export default function Whiteboard() {
         return false
       }
     },
-    [receive, peerName],
+    [receive, peerName, announceNotice],
   )
 
   /**
