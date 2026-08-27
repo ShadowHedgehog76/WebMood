@@ -469,3 +469,22 @@ export const IconMarkdown = (props) => (
     <path d="M14.6 9v6M14.6 15l-1.5-1.8M14.6 15l1.5-1.8" />
   </Icon>
 )
+
+/** Aperçu d'un type de trait : plein, tirets, pointillés, tiret-point, double. */
+export const IconDash = ({ dash = 'solid', ...props }) => (
+  <Icon {...props} strokeWidth="2.2">
+    {dash === 'double' ? (
+      <>
+        <path d="M3 9.5h18" />
+        <path d="M3 14.5h18" />
+      </>
+    ) : (
+      <path
+        d="M3 12h18"
+        strokeDasharray={
+          { dashed: '5 3.4', dotted: '0.1 3.6', dashdot: '5.5 3 0.1 3' }[dash] ?? undefined
+        }
+      />
+    )}
+  </Icon>
+)

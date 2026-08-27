@@ -49,6 +49,7 @@ import {
   shapeItem,
   straighten,
 } from '../lib/shapes.js'
+import { DASHABLE, LINE_DASHES, dashPattern } from '../lib/dashes.js'
 import { alignItems } from '../lib/align.js'
 import {
   arcEnds,
@@ -174,6 +175,7 @@ export default function Whiteboard() {
   const [markerSize, setMarkerSize] = useState(20)
   const [eraserMode, setEraserMode] = useState('pixel') // 'pixel' ou 'stroke'
   const [linkStyle, setLinkStyle] = useState('curve') // 'curve', 'elbow' ou 'straight'
+  const [dash, setDash] = useState('solid') // type de trait : plein, tirets, points…
   const [searching, setSearching] = useState(false)
   const [present, setPresent] = useState(null) // index de la scène montrée, ou rien
   const [timer, setTimer] = useState(null) // { endsAt } en marche, { left } en pause
@@ -248,6 +250,7 @@ export default function Whiteboard() {
   const erasingRef = useRef(false)
   const arrowRef = useRef(arrow)
   const linkStyleRef = useRef(linkStyle)
+  const dashRef = useRef(dash)
   const shapeRef = useRef(shape)
   const filledRef = useRef(filled)
   const draftRef = useRef(null)
@@ -263,6 +266,7 @@ export default function Whiteboard() {
   eraserModeRef.current = eraserMode
   arrowRef.current = arrow
   linkStyleRef.current = linkStyle
+  dashRef.current = dash
   shapeRef.current = shape
   filledRef.current = filled
   pendingRef.current = pending
@@ -1059,6 +1063,8 @@ export default function Whiteboard() {
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.lineWidth = Math.max(0.5, stroke.size * scale)
+    // Le motif est calculé sur l'épaisseur à l'écran : les tirets zooment avec le trait.
+    if (stroke.dash && stroke.dash !== 'solid') ctx.setLineDash(dashPattern(stroke.dash, ctx.lineWidth))
     if (stroke.tool === 'marker') {
       // Surligneur : translucide et multiplié, comme un feutre sur du papier.
       ctx.globalAlpha = 0.35
@@ -1948,6 +1954,7 @@ export default function Whiteboard() {
         to: id,
         arrow: arrowRef.current,
         style: linkStyleRef.current,
+        ...(dashRef.current !== 'solid' ? { dash: dashRef.current } : null),
         color: colorRef.current,
         width: 2,
       }
@@ -2135,6 +2142,8 @@ export default function Whiteboard() {
       tool: current,
       color: colorRef.current,
       size: current === 'marker' ? markerRef.current : sizeRef.current,
+      // La gomme efface d'un trait plein : des tirets laisseraient des miettes.
+      ...(current !== 'eraser' && dashRef.current !== 'solid' ? { dash: dashRef.current } : null),
       points: [toWorld(event.clientX, event.clientY)],
     }
     paintStrokes()
@@ -2277,6 +2286,7 @@ export default function Whiteboard() {
             ...defaultControls(a, b),
             color: colorRef.current,
             width: sizeRef.current,
+            ...(dashRef.current !== 'solid' ? { dash: dashRef.current } : null),
             arrow: arrowRef.current === 'none' ? 'none' : arrowRef.current,
           }
           commit((d) => ({ ...d, links: [...d.links, link] }))
@@ -2293,6 +2303,7 @@ export default function Whiteboard() {
           color: colorRef.current,
           strokeWidth: sizeRef.current,
           filled: filledRef.current,
+          dash: dashRef.current,
         })
         if (shape) addItems([shape])
         return
@@ -2312,6 +2323,7 @@ export default function Whiteboard() {
           id: newId(),
           kind: shapeRef.current,
           rect,
+          dash: dashRef.current,
           ends: endsFrom(sketchDraft.from, sketchDraft.to),
           color: colorRef.current,
           strokeWidth: sizeRef.current,
@@ -2456,6 +2468,7 @@ export default function Whiteboard() {
       color: item.color,
       strokeWidth: item.strokeWidth,
       filled: item.filled,
+      dash: item.dash,
       size: item.size,
       variant: item.variant,
     }
@@ -2474,6 +2487,7 @@ export default function Whiteboard() {
         if (!chosen.has(item.id) || item.locked) return item
         const patch = { color: style.color ?? item.color }
         if (item.type === 'shape' && style.strokeWidth !== undefined) {
+          patch.dash = style.dash ?? 'solid'
           patch.strokeWidth = style.strokeWidth
           patch.filled = Boolean(style.filled) && CLOSED.has(item.kind)
         }
@@ -3011,6 +3025,13 @@ export default function Whiteboard() {
     if (selectedLinkId) changeLink(selectedLinkId, { arrow: value })
   }
 
+  /** Le type de trait s'applique à ce qui est sélectionné, ou devient le choix par défaut. */
+  const pickDash = (value) => {
+    setDash(value)
+    if (selectedLinkId) changeLink(selectedLinkId, { dash: value })
+    else if (selectedShape) changeItem(selectedShape.id, { dash: value }, true)
+  }
+
   const pickLinkStyle = (value) => {
     setLinkStyle(value)
     if (selectedLinkId) changeLink(selectedLinkId, { style: value })
@@ -3301,6 +3322,7 @@ export default function Whiteboard() {
         eraserMode={eraserMode}
         arrow={arrow}
         linkStyle={selectedLink?.style ?? linkStyle}
+        dash={selectedLink?.dash ?? selectedShape?.dash ?? dash}
         isArc={selectedLink?.kind === 'arc'}
         filled={filled}
         textSizes={TEXT_SIZES}
@@ -3334,6 +3356,7 @@ export default function Whiteboard() {
           pickTextSize,
           pickArrow,
           pickLinkStyle,
+          pickDash,
           toggleLock,
           straightenShape,
           present: () => showFrame(0),

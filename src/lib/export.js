@@ -6,7 +6,8 @@
  * (que la sérialisation HTML ne transporte pas).
  */
 
-import { arrowHead, linkGeometry, pathWithArrows } from './links.js'
+import { arrowHead, geometryFor, pathWithArrows } from './links.js'
+import { DOUBLE_SPREAD, dashPattern, isDouble } from './dashes.js'
 import { branchPath, branches } from './mindmap.js'
 
 const XHTML = 'http://www.w3.org/1999/xhtml'
@@ -157,7 +158,7 @@ async function layerToImage(layer, keep, bounds) {
   })
 }
 
-function drawLinks(ctx, doc, items) {
+function drawLinks(ctx, doc, items, background) {
   const byId = new Map(items.map((item) => [item.id, item]))
 
   for (const link of doc.links) {
@@ -165,15 +166,30 @@ function drawLinks(ctx, doc, items) {
     const to = byId.get(link.to)
     if (!from || !to) continue
 
-    const geometry = linkGeometry(from, to)
+    const geometry = geometryFor(link.style, from, to)
     const color = link.color || '#1c1c1e'
     const width = link.width || 2
+    const path = new Path2D(pathWithArrows(geometry, link.arrow, width, { start: true, end: true }))
     ctx.save()
     ctx.strokeStyle = color
     ctx.fillStyle = color
     ctx.lineWidth = width
     ctx.lineCap = 'round'
-    ctx.stroke(new Path2D(pathWithArrows(geometry, link.arrow, width, { start: true, end: true })))
+    if (isDouble(link.dash)) {
+      // Les connexions sont posées avant tout le reste : évider le cœur avec la couleur
+      // de fond revient au même qu'un masque, sans en avoir le coût.
+      ctx.lineWidth = width * DOUBLE_SPREAD
+      ctx.stroke(path)
+      ctx.strokeStyle = background
+      ctx.lineWidth = width
+      ctx.stroke(path)
+      ctx.strokeStyle = color
+      ctx.lineWidth = width
+    } else {
+      ctx.setLineDash(dashPattern(link.dash, width))
+      ctx.stroke(path)
+      ctx.setLineDash([])
+    }
     if (link.arrow === 'start' || link.arrow === 'both') {
       ctx.fill(new Path2D(arrowHead(geometry.start, geometry.startDir, width * 5)))
     }
@@ -202,6 +218,7 @@ function drawStrokes(ctx, strokes) {
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.lineWidth = stroke.size
+    if (stroke.dash) ctx.setLineDash(dashPattern(stroke.dash, stroke.size))
     if (stroke.tool === 'eraser') {
       ctx.globalCompositeOperation = 'destination-out'
       ctx.strokeStyle = 'rgba(0,0,0,1)'
@@ -238,7 +255,7 @@ export async function renderBoard({ layer, doc, only = null, scale = 2, backgrou
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.setTransform(scale, 0, 0, scale, -bounds.x * scale, -bounds.y * scale)
 
-  drawLinks(ctx, { ...doc, links: keep ? [] : doc.links }, items)
+  drawLinks(ctx, { ...doc, links: keep ? [] : doc.links }, items, background)
   const image = await layerToImage(layer, keep, bounds)
   if (image) ctx.drawImage(image, bounds.x, bounds.y, bounds.w, bounds.h)
   drawStrokes(ctx, strokes)

@@ -10,6 +10,7 @@ import {
   pendingGeometry,
   resolveEnd,
 } from '../lib/links.js'
+import { DOUBLE_SPREAD, dashArray, isDouble } from '../lib/dashes.js'
 import { branchPath } from '../lib/mindmap.js'
 import './Links.css'
 
@@ -25,6 +26,38 @@ function toScreen(item, view) {
     w: item.w * view.scale,
     h: item.h * view.scale,
   }
+}
+
+/**
+ * Le trait d'une connexion, selon son type. Le trait double s'obtient en évidant le cœur
+ * d'un trait large : n'importe quelle courbe garde ainsi ses deux bords parallèles, ce
+ * qu'un simple décalage ne donnerait pas.
+ */
+function LinkLine({ id, d, color, width, dash }) {
+  if (!isDouble(dash)) {
+    return (
+      <path
+        className="link__line"
+        d={d}
+        stroke={color}
+        strokeWidth={width}
+        strokeDasharray={dashArray(dash, width)}
+      />
+    )
+  }
+
+  const outer = width * DOUBLE_SPREAD
+  return (
+    <>
+      {/* Le masque couvre tout l'écran : la boîte englobante d'un trait horizontal
+          serait plate, et rognerait l'épaisseur. */}
+      <mask id={`double-${id}`} maskUnits="userSpaceOnUse" x="-4000" y="-4000" width="12000" height="12000">
+        <path className="link__line" d={d} stroke="#fff" strokeWidth={outer} />
+        <path className="link__line" d={d} stroke="#000" strokeWidth={width} />
+      </mask>
+      <path className="link__line" d={d} stroke={color} strokeWidth={outer} mask={`url(#double-${id})`} />
+    </>
+  )
 }
 
 function Links({ links, items, branches, view, selectedId, interactive, pending, arc, onSelect }) {
@@ -85,7 +118,7 @@ function Links({ links, items, branches, view, selectedId, interactive, pending,
           return (
             <g key={link.id} className={`link ${selected ? 'is-selected' : ''}`}>
               {selected && <path className="link__halo" d={d} strokeWidth={width * 4.5} />}
-              <path className="link__line" d={d} stroke={color} strokeWidth={width} fill="none" />
+              <LinkLine id={link.id} d={d} color={color} width={width} dash={link.dash} />
               {(link.arrow === 'start' || link.arrow === 'both') && (
                 <path d={arrowHead(start, geometry.startDir, width * 5)} fill={color} />
               )}
@@ -115,12 +148,12 @@ function Links({ links, items, branches, view, selectedId, interactive, pending,
         return (
           <g key={link.id} className={`link ${selected ? 'is-selected' : ''}`}>
             {selected && <path className="link__halo" d={geometry.d} strokeWidth={width * 4.5} />}
-            <path
-              className="link__line"
+            <LinkLine
+              id={link.id}
               d={pathWithArrows(geometry, link.arrow, width, { start: true, end: true })}
-              stroke={color}
-              strokeWidth={width}
-              fill="none"
+              color={color}
+              width={width}
+              dash={link.dash}
             />
             {(link.arrow === 'start' || link.arrow === 'both') && (
               <path d={arrowHead(geometry.start, geometry.startDir, width * 5)} fill={color} />

@@ -57,6 +57,7 @@ export function shapeItem({
   filled = false,
   points,
   ends,
+  dash,
 }) {
   return {
     id,
@@ -65,6 +66,7 @@ export function shapeItem({
     color,
     strokeWidth,
     filled: filled && CLOSED.has(kind),
+    ...(dash && dash !== 'solid' ? { dash } : null),
     ...(points ? { points } : null),
     ...(ends && ORIENTED.has(kind) ? { ends } : null),
     ...rect,
@@ -77,7 +79,7 @@ const CLOSE_RATIO = 0.12 // fin de tracé proche du départ : la forme se referm
  * Tracé à main levée → forme vectorielle. Les points sont rangés en proportions du
  * cadre (0 → 1) : la forme se redimensionne ensuite comme n'importe quelle autre.
  */
-export function freeShape({ id, points, color, strokeWidth = 3, filled = false }) {
+export function freeShape({ id, points, color, strokeWidth = 3, filled = false, dash }) {
   if (points.length < 2) return null
 
   const xs = points.map((point) => point.x)
@@ -98,6 +100,7 @@ export function freeShape({ id, points, color, strokeWidth = 3, filled = false }
     kind: 'free',
     color,
     strokeWidth,
+    ...(dash && dash !== 'solid' ? { dash } : null),
     filled: filled && closed,
     closed,
     points: points.map((point) => ({

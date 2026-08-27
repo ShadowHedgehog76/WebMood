@@ -3,6 +3,7 @@ import { ALIGNMENTS } from '../lib/align.js'
 import { ARROW_STYLES, LINK_STYLES } from '../lib/links.js'
 import { COLOR_ROWS, NEUTRAL_ROW, QUICK_COLORS } from '../lib/palette.js'
 import { CLOSED, SHAPES } from '../lib/shapes.js'
+import { DASHABLE, LINE_DASHES } from '../lib/dashes.js'
 import { MINDMAP_LAYOUTS } from '../lib/mindmap.js'
 import { SKETCH_MODES } from '../lib/sketch.js'
 import {
@@ -14,6 +15,7 @@ import {
   IconCircle,
   IconCode,
   IconCursor,
+  IconDash,
   IconDiamond,
   IconEraser,
   IconFill,
@@ -87,6 +89,7 @@ export default function Toolbar({
   eraserMode,
   arrow,
   linkStyle,
+  dash,
   isArc,
   filled,
   textSizes,
@@ -197,6 +200,19 @@ export default function Toolbar({
     ]
   }
 
+  /** Choix du type de trait. Le trait double n'a pas de sens pour un tracé au crayon. */
+  const dashes = (styles = LINE_DASHES) =>
+    styles.map((style) => (
+      <button
+        key={style.key}
+        className={`chip chip--icon ${dash === style.key ? 'is-active' : ''}`}
+        onClick={() => actions.pickDash(style.key)}
+        {...tipProps(style.label)}
+      >
+        <IconDash size={17} dash={style.key} />
+      </button>
+    ))
+
   const separator = <span className="context-bar__sep" />
 
   // Réglages du moment : ils dépendent de la sélection, ou à défaut de l'outil actif.
@@ -245,6 +261,8 @@ export default function Toolbar({
               />
             </button>
           ))}
+          {separator}
+          {dashes()}
           {/* Un arc suit ses propres poignées : le choix du tracé ne le concerne pas. */}
           {!isArc && separator}
           {!isArc &&
@@ -422,6 +440,8 @@ export default function Toolbar({
             'Épaisseur',
             [1, 60],
           )}
+          {separator}
+          {dashes()}
         </>
       )
     }
@@ -468,6 +488,8 @@ export default function Toolbar({
           {colorButton}
           {separator}
           {sizes([2, 5, 10, 20], size, actions.pickSize, 'Épaisseur', [1, 60])}
+          {separator}
+          {dashes(DASHABLE)}
         </>
       )
     }
