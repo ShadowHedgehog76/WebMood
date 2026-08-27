@@ -107,7 +107,7 @@ export default function Tour({ step, onStep, onClose, actions }) {
 
   return (
     <div className="tour">
-      <div className="tour__veil" onPointerDown={onClose} />
+      <div className={`tour__veil ${hole ? '' : 'is-full'}`} onPointerDown={onClose} />
 
       {hole && (
         <span

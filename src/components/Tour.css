@@ -4,12 +4,17 @@
   z-index: 40;
 }
 
+/* Le voile ne sert qu'à recueillir les clics : l'assombrissement vient du projecteur,
+   sinon la zone éclairée serait voilée elle aussi. */
 .tour__veil {
   position: absolute;
   inset: 0;
-  background: rgba(18, 18, 24, 0.42);
-  backdrop-filter: blur(1.5px);
   animation: fade-in var(--slow) ease;
+}
+
+/* Étape sans cible : là, c'est bien tout l'écran qui s'assombrit. */
+.tour__veil.is-full {
+  background: rgba(18, 18, 24, 0.42);
 }
 
 /* Le projecteur : un cadre clair posé sur l'élément, le voile est percé autour. */

@@ -1,7 +1,7 @@
 .minimap {
   animation: fade-in var(--slow) ease;
   position: absolute;
-  right: 96px;
+  left: 24px;
   bottom: 24px;
   z-index: 12;
   overflow: hidden;
