@@ -5,11 +5,13 @@ import { ARROW_STYLES, LINK_STYLES } from '../lib/links.js'
 import { COLOR_ROWS, NEUTRAL_ROW, QUICK_COLORS } from '../lib/palette.js'
 import { CLOSED, SHAPES } from '../lib/shapes.js'
 import { DASHABLE, LINE_DASHES } from '../lib/dashes.js'
+import { BRUSHES, DASHABLE_BRUSHES } from '../lib/brushes.js'
 import { MINDMAP_LAYOUTS } from '../lib/mindmap.js'
 import { SKETCH_MODES } from '../lib/sketch.js'
 import {
   IconAlign,
   IconBrush,
+  IconBucket,
   IconArc,
   IconArrow,
   IconArrowStyle,
@@ -50,6 +52,7 @@ import {
   IconSketch,
   IconSquare,
   IconStraighten,
+  IconStrokeBrush,
   IconTable,
   IconText,
   IconTimer,
@@ -95,6 +98,7 @@ export default function Toolbar({
   arrow,
   linkStyle,
   dash,
+  brush,
   isArc,
   filled,
   textSizes,
@@ -471,7 +475,7 @@ export default function Toolbar({
     }
 
     // La gommette prend la couleur choisie — ou celle de la personne, en session.
-    if (tool === 'vote') return colorButton
+    if (tool === 'vote' || tool === 'bucket') return colorButton
 
     if (tool === 'marker') {
       return (
@@ -511,9 +515,22 @@ export default function Toolbar({
         <>
           {colorButton}
           {separator}
-          {sizes([2, 5, 10, 20], size, actions.pickSize, 'Épaisseur', [1, 60])}
+          {BRUSHES.map((option) => (
+            <button
+              key={option.key}
+              className={`chip chip--icon ${brush === option.key ? 'is-active' : ''}`}
+              onClick={() => actions.pickBrush(option.key)}
+              {...tipProps(`${option.label} : ${option.hint}`)}
+            >
+              <IconStrokeBrush size={17} kind={option.key} />
+            </button>
+          ))}
           {separator}
-          {dashes(DASHABLE)}
+          {sizes([2, 5, 10, 20], size, actions.pickSize, 'Épaisseur', [1, 60])}
+          {/* Les motifs ne valent que pour le stylo : ailleurs, chaque segment les
+              redémarrerait et le trait ressemblerait à des miettes. */}
+          {DASHABLE_BRUSHES.has(brush) && separator}
+          {DASHABLE_BRUSHES.has(brush) && dashes(DASHABLE)}
         </>
       )
     }
@@ -523,7 +540,7 @@ export default function Toolbar({
 
   // Le verrou vaut pour n'importe quel bloc : il ouvre la barre, et quand il est mis
   // il reste seul — un bloc verrouillé n'a plus de réglage à offrir.
-  const brush = (
+  const styleBrush = (
     <>
       <button
         className="chip chip--icon"
@@ -546,7 +563,7 @@ export default function Toolbar({
 
   const lock = selectedItem ? (
     <>
-      {!selectedItem.locked && brush}
+      {!selectedItem.locked && styleBrush}
       <button
         className={`chip chip--icon ${selectedItem.locked ? 'is-active' : ''}`}
         onClick={actions.toggleLock}
@@ -616,6 +633,13 @@ export default function Toolbar({
           <ShapeGlyph />
         </button>
 
+        <button
+          className={`tool ${tool === 'bucket' ? 'is-active' : ''}`}
+          onClick={() => setTool('bucket')}
+          {...tipProps('Seau : remplir une forme', 'B')}
+        >
+          <IconBucket />
+        </button>
         <button
           className={`tool ${tool === 'laser' ? 'is-active' : ''}`}
           onClick={() => setTool('laser')}

@@ -21,6 +21,7 @@ import { makeCode, openSession } from '../lib/session.js'
 import { createShakeDetector } from '../lib/shake.js'
 import { caretPoint } from '../lib/caret.js'
 import { snapPosition } from '../lib/snap.js'
+import { DASHABLE_BRUSHES, paintBrush } from '../lib/brushes.js'
 import {
   followJoins,
   isClosed,
@@ -189,6 +190,7 @@ export default function Whiteboard() {
   const [eraserMode, setEraserMode] = useState('pixel') // 'pixel' ou 'stroke'
   const [linkStyle, setLinkStyle] = useState('curve') // 'curve', 'elbow' ou 'straight'
   const [dash, setDash] = useState('solid') // type de trait : plein, tirets, points…
+  const [brush, setBrush] = useState('plain') // pinceau du crayon
   const [settings, setSettings] = useState(loadSettings)
   const settingsRef = useRef(settings)
   settingsRef.current = settings
@@ -267,6 +269,7 @@ export default function Whiteboard() {
   const arrowRef = useRef(arrow)
   const linkStyleRef = useRef(linkStyle)
   const dashRef = useRef(dash)
+  const brushRef = useRef(brush)
   const shapeRef = useRef(shape)
   const filledRef = useRef(filled)
   const draftRef = useRef(null)
@@ -283,6 +286,7 @@ export default function Whiteboard() {
   arrowRef.current = arrow
   linkStyleRef.current = linkStyle
   dashRef.current = dash
+  brushRef.current = brush
   shapeRef.current = shape
   filledRef.current = filled
   pendingRef.current = pending
@@ -1079,9 +1083,6 @@ export default function Whiteboard() {
     ctx.save()
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
-    ctx.lineWidth = Math.max(0.5, stroke.size * scale)
-    // Le motif est calculé sur l'épaisseur à l'écran : les tirets zooment avec le trait.
-    if (stroke.dash && stroke.dash !== 'solid') ctx.setLineDash(dashPattern(stroke.dash, ctx.lineWidth))
     if (stroke.tool === 'marker') {
       // Surligneur : translucide et multiplié, comme un feutre sur du papier.
       ctx.globalAlpha = 0.35
@@ -1094,20 +1095,20 @@ export default function Whiteboard() {
       ctx.globalCompositeOperation = 'source-over'
       ctx.strokeStyle = stroke.color
     }
+    ctx.fillStyle = ctx.strokeStyle
 
-    ctx.beginPath()
-    if (pts.length === 1) {
-      // un simple clic : on dépose un point
-      ctx.arc(pts[0].x * scale + x, pts[0].y * scale + y, ctx.lineWidth / 2, 0, Math.PI * 2)
-      ctx.fillStyle = ctx.strokeStyle
-      ctx.fill()
-    } else {
-      ctx.moveTo(pts[0].x * scale + x, pts[0].y * scale + y)
-      for (let i = 1; i < pts.length; i++) {
-        ctx.lineTo(pts[i].x * scale + x, pts[i].y * scale + y)
-      }
-      ctx.stroke()
-    }
+    const width = Math.max(0.5, stroke.size * scale)
+    // La pression suit la projection : c'est elle qui commande l'épaisseur du pinceau.
+    const points = pts.map((point) => ({
+      x: point.x * scale + x,
+      y: point.y * scale + y,
+      p: point.p,
+    }))
+    // La gomme et le surligneur posent toujours un trait plein : leur matière leur
+    // vient de leur mode de fusion, pas du pinceau choisi pour le crayon.
+    const brushed = stroke.tool === 'pen' ? stroke : { ...stroke, brush: 'plain' }
+    paintBrush(ctx, brushed, points, width)
+
     ctx.restore()
   }, [])
 
@@ -1317,6 +1318,33 @@ export default function Whiteboard() {
       }, recordHistory)
     },
     [write],
+  )
+
+  /**
+   * Seau : remplit ce sur quoi on clique. Une forme fermée prend la couleur en fond, un
+   * bloc coloré la prend tout court. Rien ne se passe sur le vide : le tableau n'a pas
+   * de zones délimitées par les traits, seules les formes en ont une.
+   */
+  const fillAt = useCallback(
+    (point) => {
+      const items = docRef.current.items
+      const target = [...items].reverse().find((item) => {
+        if (item.type === 'dot' || item.type === 'frame') return false
+        if (!contains(item, point)) return false
+        // Une forme ouverte n'a pas d'intérieur à remplir.
+        return item.type !== 'shape' || isClosed(item)
+      })
+      if (!target) return
+
+      changeItem(
+        target.id,
+        target.type === 'shape'
+          ? { color: colorRef.current, filled: true }
+          : { color: colorRef.current },
+        true,
+      )
+    },
+    [changeItem],
   )
 
   /**
@@ -2148,7 +2176,11 @@ export default function Whiteboard() {
       setPanning(true)
       return
     }
-    if (event.button !== 0) return
+    // Le bout gomme d'un stylet n'annonce pas le bouton gauche : il a le sien.
+    // Le bout gomme s'annonce par le bouton 5, ou par le bit 32 des boutons tenus.
+    const penEraser =
+      event.pointerType === 'pen' && ((event.buttons & 32) !== 0 || event.button === 5)
+    if (event.button !== 0 && !penEraser) return
 
     if (current === 'eraser' && eraserModeRef.current === 'stroke') {
       erasing.current = false
@@ -2157,19 +2189,34 @@ export default function Whiteboard() {
       return
     }
 
+    if (current === 'bucket') {
+      fillAt(toWorld(event.clientX, event.clientY))
+      return
+    }
+
     if (current === 'picker') {
       pickColorAt(toWorld(event.clientX, event.clientY))
       return
     }
 
+    // Le bout gomme du stylet efface, quel que soit l'outil choisi.
     liveStroke.current = {
       id: newId(),
-      tool: current,
+      tool: penEraser ? 'eraser' : current,
       color: colorRef.current,
       size: current === 'marker' ? markerRef.current : sizeRef.current,
       // La gomme efface d'un trait plein : des tirets laisseraient des miettes.
       ...(current !== 'eraser' && dashRef.current !== 'solid' ? { dash: dashRef.current } : null),
-      points: [toWorld(event.clientX, event.clientY)],
+      ...(current === 'pen' && brushRef.current !== 'plain' ? { brush: brushRef.current } : null),
+      // L'inclinaison du stylet à la pose donne l'angle de la plume calligraphique.
+      ...(event.pointerType === 'pen' && (event.tiltX || event.tiltY)
+        ? { tilt: Math.atan2(event.tiltY, event.tiltX) }
+        : null),
+      points: [
+        event.pointerType === 'pen'
+          ? { ...toWorld(event.clientX, event.clientY), p: Math.round(event.pressure * 100) / 100 }
+          : toWorld(event.clientX, event.clientY),
+      ],
     }
     paintStrokes()
   }
@@ -2216,7 +2263,13 @@ export default function Whiteboard() {
     } else if (liveStroke.current) {
       const coalesced = event.nativeEvent.getCoalescedEvents?.()
       const events = coalesced?.length ? coalesced : [event.nativeEvent]
-      const fresh = events.map((e) => toWorld(e.clientX, e.clientY))
+      // La pression n'est retenue que du stylet : une souris répond 0,5 en permanence
+      // et un doigt 0, ce qui ne veut rien dire.
+      const pen = event.pointerType === 'pen'
+      const fresh = events.map((e) => {
+        const point = toWorld(e.clientX, e.clientY)
+        return pen ? { ...point, p: Math.round(e.pressure * 100) / 100 } : point
+      })
       liveStroke.current.points.push(...fresh)
       move.paint = true
     }
@@ -2874,6 +2927,7 @@ export default function Whiteboard() {
         s: () => chooseTool('shape'),
         m: () => chooseTool('marker'),
         i: () => chooseTool('picker'),
+        b: () => chooseTool('bucket'),
         t: () => addText('note'),
       }
       if (shortcuts[event.key]) {
@@ -3497,6 +3551,7 @@ export default function Whiteboard() {
         arrow={arrow}
         linkStyle={selectedLink?.style ?? linkStyle}
         dash={selectedLink?.dash ?? selectedShape?.dash ?? dash}
+        brush={brush}
         isArc={selectedLink?.kind === 'arc'}
         filled={filled}
         textSizes={TEXT_SIZES}
@@ -3535,6 +3590,7 @@ export default function Whiteboard() {
           pickArrow,
           pickLinkStyle,
           pickDash,
+          pickBrush: setBrush,
           toggleLock,
           straightenShape,
           present: () => showFrame(0),

@@ -517,3 +517,61 @@ export const IconGrid = (props) => (
     <circle cx="18" cy="18" r="1.1" fill="currentColor" stroke="none" />
   </Icon>
 )
+
+/** Aperçu d'un pinceau : le même geste, posé de six façons. */
+export const IconStrokeBrush = ({ kind = 'plain', ...props }) => (
+  <Icon {...props}>
+    {kind === 'plain' && <path d="M3.5 16.5c4-9 13-9 17 0" strokeWidth="2" />}
+
+    {kind === 'brush' && (
+      <path
+        d="M3.5 16.5c4-9 13-9 17 0-4-6.4-13-6.4-17 0Z"
+        fill="currentColor"
+        stroke="none"
+      />
+    )}
+
+    {kind === 'calligraphy' && (
+      <path
+        d="M3.5 16.5c4-9 13-9 17 0l-2.2 2.2c-3.4-7-10.6-7-14 0Z"
+        fill="currentColor"
+        stroke="none"
+      />
+    )}
+
+    {kind === 'pencil' && (
+      <>
+        <path d="M3.5 16.5c4-9 13-9 17 0" strokeWidth="1.1" opacity="0.85" />
+        <path d="M4.4 17.4c4-9 13-9 17 0" strokeWidth="0.9" opacity="0.5" />
+        <path d="M3 15.6c4-9 13-9 17 0" strokeWidth="0.9" opacity="0.5" />
+      </>
+    )}
+
+    {kind === 'spray' && (
+      <g fill="currentColor" stroke="none">
+        {[
+          [4, 15.5, 1.1], [6.6, 12.6, 0.8], [9.4, 10.9, 1.2], [12.6, 10.6, 0.8],
+          [15.6, 11.6, 1.1], [18, 13.6, 0.8], [20, 16.4, 1.1], [7.4, 15, 0.6],
+          [11.4, 13.2, 0.6], [16.4, 14.6, 0.6],
+        ].map(([x, y, r], index) => (
+          <circle key={index} cx={x} cy={y} r={r} />
+        ))}
+      </g>
+    )}
+
+    {kind === 'neon' && (
+      <>
+        <path d="M3.5 16.5c4-9 13-9 17 0" strokeWidth="4.5" opacity="0.28" />
+        <path d="M3.5 16.5c4-9 13-9 17 0" strokeWidth="1.2" />
+      </>
+    )}
+  </Icon>
+)
+
+export const IconBucket = (props) => (
+  <Icon {...props}>
+    <path d="M5.5 10.2 12 3.7l7.2 7.2a1.2 1.2 0 0 1 0 1.7l-5.5 5.5a1.2 1.2 0 0 1-1.7 0l-6.5-6.5a1.2 1.2 0 0 1 0-1.4Z" />
+    <path d="M8.8 6.9 6.4 4.5" />
+    <path d="M20.5 15.5c1 1.4 1.5 2.4 1.5 3.1a1.6 1.6 0 0 1-3.2 0c0-.7.5-1.7 1.7-3.1Z" fill="currentColor" strokeWidth="1.2" />
+  </Icon>
+)
