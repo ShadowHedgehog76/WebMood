@@ -7,7 +7,7 @@ import './PathHandles.css'
  * repère au milieu de chaque segment pour y ajouter un nœud. C'est le même vocabulaire
  * que les arcs — une forme est devenue un arc à plusieurs points.
  */
-export default function PathHandles({ item, toWorld, onDrag, onDrop, onAdd, onRemove }) {
+export default function PathHandles({ item, snap, toWorld, onDrag, onDrop, onAdd, onRemove }) {
   const dragging = useRef(null)
   const nodes = nodesOf(item)
   if (nodes.length < 2) return null
@@ -37,9 +37,10 @@ export default function PathHandles({ item, toWorld, onDrag, onDrop, onAdd, onRe
       onDrag(state.index, state.key, toUnit(toWorld(event.clientX, event.clientY)), event.altKey)
     },
     onPointerUp: () => {
-      if (!dragging.current) return
+      const state = dragging.current
+      if (!state) return
       dragging.current = null
-      onDrop()
+      onDrop(state.key === 'point' ? state.index : undefined)
     },
   })
 
@@ -47,6 +48,9 @@ export default function PathHandles({ item, toWorld, onDrag, onDrop, onAdd, onRe
 
   return (
     <>
+      {/* Le nœud visé par la poignée en cours : il l'attend. */}
+      {snap && <span className="arc-snap" style={{ left: snap.x, top: snap.y }} />}
+
       {/* Tiges entre chaque nœud et ses tangentes. */}
       {nodes.flatMap((entry, index) =>
         ['in', 'out']

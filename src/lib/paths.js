@@ -341,3 +341,65 @@ export function moveHandle(nodes, index, key, target, breakSmooth = false) {
 
   return next
 }
+
+/* ---------- nœuds raccordés ---------- */
+
+/**
+ * Les nœuds d'une forme, en coordonnées du tableau : ce sont eux qu'on vise pour
+ * raccorder deux chemins.
+ */
+export function nodeAnchors(item) {
+  const { toBoard } = projector(item)
+  return nodesOf(item).map((entry, index) => ({ id: item.id, index, ...toBoard(entry) }))
+}
+
+/**
+ * Le nœud d'une autre forme le plus proche d'un point, à portée donnée. On ignore la
+ * forme elle-même : un chemin ne se raccorde pas à lui-même.
+ */
+export function nearestNode(items, exceptId, point, reach) {
+  let best = null
+  for (const item of items) {
+    if (item.id === exceptId || item.type !== 'shape') continue
+    for (const anchor of nodeAnchors(item)) {
+      const distance = Math.hypot(anchor.x - point.x, anchor.y - point.y)
+      if (distance <= reach && (!best || distance < best.distance)) best = { ...anchor, distance }
+    }
+  }
+  return best
+}
+
+/**
+ * Déplace les nœuds raccordés à un bloc qui vient de bouger. Le raccord est enregistré
+ * sur le suiveur : `joins[index] = { id, node }` dit quel nœud d'un autre chemin il
+ * accompagne. Seul ce nœud bouge — la forme se déforme, elle ne se déplace pas.
+ */
+export function followJoins(items, moved, dx, dy) {
+  if (!dx && !dy) return items
+
+  return items.map((item) => {
+    if (item.type !== 'shape' || !item.joins) return item
+
+    const attached = Object.entries(item.joins).filter(([, join]) => moved.has(join.id))
+    if (!attached.length) return item
+
+    const pad = Math.max(1, item.strokeWidth ?? 3) / 2 + 1
+    const width = Math.max(1, Math.max(1, item.w) - pad * 2)
+    const height = Math.max(1, Math.max(1, item.h) - pad * 2)
+
+    const nodes = nodesOf(item).map((entry) => ({ ...entry }))
+    for (const [index] of attached) {
+      const entry = nodes[Number(index)]
+      if (!entry) continue
+      const ux = dx / width
+      const uy = dy / height
+      nodes[Number(index)] = {
+        x: entry.x + ux,
+        y: entry.y + uy,
+        in: entry.in ? { x: entry.in.x + ux, y: entry.in.y + uy } : null,
+        out: entry.out ? { x: entry.out.x + ux, y: entry.out.y + uy } : null,
+      }
+    }
+    return { ...item, nodes, closed: isClosed(item) }
+  })
+}

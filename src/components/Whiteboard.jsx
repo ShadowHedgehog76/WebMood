@@ -22,10 +22,13 @@ import { createShakeDetector } from '../lib/shake.js'
 import { caretPoint } from '../lib/caret.js'
 import { snapPosition } from '../lib/snap.js'
 import {
+  followJoins,
   isClosed,
   moveHandle,
+  nearestNode,
   nodesOf,
   normalizePath,
+  projector,
   removeNode,
   splitSegment,
 } from '../lib/paths.js'
@@ -1299,6 +1302,12 @@ export default function Whiteboard() {
           return item
         })
 
+        // Les nœuds raccordés à ce qui vient de bouger suivent le mouvement.
+        if (dx || dy) {
+          const carried = new Set([id, ...(moving ?? [])])
+          items = followJoins(items, carried, dx, dy)
+        }
+
         const next = items.find((item) => item.id === id)
         if (next.type === 'group' && next.autoSort && (patch.w !== undefined || patch.h !== undefined)) {
           items = layoutGroup(items, next)
@@ -2471,6 +2480,9 @@ export default function Whiteboard() {
 
   /* ---------- chemins éditables ---------- */
 
+  // Nœud visé par la poignée en cours de déplacement, s'il y en a un à portée.
+  const pathSnap = useRef(null)
+
   /**
    * Les nœuds d'une forme, écrits dans le bloc. Les formes d'avant n'en portaient pas :
    * on les fabrique au premier geste, en gardant leur genre — un rectangle reste un
@@ -2488,12 +2500,26 @@ export default function Whiteboard() {
     [write],
   )
 
-  /** Poignée déplacée : en continu, sans entrée d'historique. */
+  /**
+   * Poignée déplacée : en continu, sans entrée d'historique. Un nœud passé près de
+   * celui d'une autre forme le vise — le raccord se fera au lâcher.
+   */
   const dragPath = useCallback(
     (id, index, key, point, breakSmooth) => {
       const item = docRef.current.items.find((candidate) => candidate.id === id)
       if (!item) return
       writeNodes(id, moveHandle(nodesOf(item), index, key, point, breakSmooth), false)
+
+      if (key !== 'point') return
+      const board = projector(item).toBoard(point)
+      const target = nearestNode(
+        docRef.current.items,
+        id,
+        board,
+        snapReach(viewRef.current.scale),
+      )
+      pathSnap.current = target
+      setArcSnap(target ? { x: target.x, y: target.y } : null)
     },
     [writeNodes],
   )
@@ -2503,12 +2529,47 @@ export default function Whiteboard() {
    * un nœud tiré au loin laisserait une boîte de sélection démesurée.
    */
   const dropPath = useCallback(
-    (id) => {
+    (id, index) => {
+      const target = pathSnap.current
+      pathSnap.current = null
+      setArcSnap(null)
+
       commit((d) => ({
         ...d,
         items: d.items.map((item) => {
           if (item.id !== id) return item
-          return { ...item, closed: isClosed(item), ...normalizePath(item, nodesOf(item)) }
+
+          let nodes = nodesOf(item)
+          let joins = { ...item.joins }
+
+          if (target && index !== undefined) {
+            // Le nœud rejoint exactement celui qu'il visait, et le suivra désormais.
+            const entry = nodes[index]
+            const unit = projector(item).toUnit(target)
+            const dx = unit.x - entry.x
+            const dy = unit.y - entry.y
+            nodes = nodes.map((candidate, i) =>
+              i === index
+                ? {
+                    x: unit.x,
+                    y: unit.y,
+                    in: candidate.in ? { x: candidate.in.x + dx, y: candidate.in.y + dy } : null,
+                    out: candidate.out ? { x: candidate.out.x + dx, y: candidate.out.y + dy } : null,
+                  }
+                : candidate,
+            )
+            joins[index] = { id: target.id, node: target.index }
+          } else if (index !== undefined) {
+            // Déplacé ailleurs : le nœud reprend sa liberté.
+            delete joins[index]
+          }
+
+          return {
+            ...item,
+            closed: isClosed(item),
+            joins: Object.keys(joins).length ? joins : undefined,
+            ...normalizePath({ ...item, nodes }, nodes),
+          }
         }),
       }))
     },
@@ -3248,11 +3309,12 @@ export default function Whiteboard() {
           {tool === 'select' && selectedShape && !selectedShape.locked && (
             <PathHandles
               item={selectedShape}
+              snap={arcSnap}
               toWorld={toWorld}
               onDrag={(index, key, point, alt) =>
                 dragPath(selectedShape.id, index, key, point, alt)
               }
-              onDrop={() => dropPath(selectedShape.id)}
+              onDrop={(index) => dropPath(selectedShape.id, index)}
               onAdd={(index) => addPathNode(selectedShape.id, index)}
               onRemove={(index) => removePathNode(selectedShape.id, index)}
             />
