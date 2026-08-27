@@ -20,7 +20,8 @@
 }
 
 .rail:hover,
-.rail:focus-within {
+.rail:focus-within,
+.rail.is-open {
   width: 262px;
   box-shadow: 0 18px 44px rgba(15, 15, 20, 0.2);
 }
@@ -53,17 +54,21 @@
 .rail:hover .rail__name,
 .rail:hover .rail__action > span:not(.rail__slot),
 .rail:focus-within .rail__name,
-.rail:focus-within .rail__action > span:not(.rail__slot) {
+.rail:focus-within .rail__action > span:not(.rail__slot),
+.rail.is-open .rail__name,
+.rail.is-open .rail__action > span:not(.rail__slot) {
   opacity: 1;
 }
 
 .rail:hover .rail__title,
-.rail:focus-within .rail__title {
+.rail:focus-within .rail__title,
+.rail.is-open .rail__title {
   display: block;
 }
 
 .rail:hover .rail__rename,
-.rail:focus-within .rail__rename {
+.rail:focus-within .rail__rename,
+.rail.is-open .rail__rename {
   display: block;
 }
 
@@ -118,7 +123,8 @@
 }
 
 .rail:hover .rail__board.is-current,
-.rail:focus-within .rail__board.is-current {
+.rail:focus-within .rail__board.is-current,
+.rail.is-open .rail__board.is-current {
   background: rgba(59, 130, 246, 0.12);
 }
 

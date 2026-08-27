@@ -120,7 +120,11 @@ export default function SketchBlock({ item, canEdit, onChange, onExport }) {
   const startSplit = (event) => {
     if (!canEdit) return
     event.stopPropagation()
-    event.currentTarget.setPointerCapture(event.pointerId)
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // Pointeur déjà relâché : on continue sans capture.
+    }
     dragSplit.current = { id: event.pointerId, first: true }
   }
 

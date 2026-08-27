@@ -212,6 +212,10 @@ export default function Whiteboard() {
   const frame = useRef(0)
   const nextMove = useRef(null)
   const spaceDown = useRef(false)
+  const touches = useRef(new Map()) // doigts posés : id → position dans le tableau
+  const gesture = useRef(null) // pincement / déplacement à deux doigts en cours
+  const penDown = useRef(false) // un stylet écrit : les doigts ne comptent plus
+  const ignored = useRef(new Set()) // doigts restants après un geste, à ne pas interpréter
   const [panning, setPanning] = useState(false)
 
   const clearSelection = useCallback(() => setSelection({ items: [], link: null }), [])
@@ -1507,7 +1511,71 @@ export default function Whiteboard() {
 
   /* ---------- interactions pointeur ---------- */
 
+  const localPoint = (event) => {
+    const rect = containerRef.current.getBoundingClientRect()
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top }
+  }
+
+  /** Abandonne ce qui vient d'être commencé : un deuxième doigt annule le geste en cours. */
+  const cancelPending = () => {
+    if (liveStroke.current) {
+      liveStroke.current = null
+      painters.current.paintStrokes()
+    }
+    bandRef.current = null
+    setBand(null)
+    draftRef.current = null
+    setDraft(null)
+    pan.current = null
+    setPanning(false)
+  }
+
+  const startGesture = () => {
+    const [a, b] = [...touches.current.values()]
+    gesture.current = {
+      distance: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+      middle: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      view: viewRef.current,
+    }
+  }
+
+  const applyGesture = () => {
+    const state = gesture.current
+    if (!state || touches.current.size < 2) return
+    const [a, b] = [...touches.current.values()]
+
+    const distance = Math.hypot(a.x - b.x, a.y - b.y) || 1
+    const middle = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+    const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, state.view.scale * (distance / state.distance)))
+    const ratio = scale / state.view.scale
+
+    setView({
+      scale,
+      x: middle.x - (state.middle.x - state.view.x) * ratio,
+      y: middle.y - (state.middle.y - state.view.y) * ratio,
+    })
+  }
+
   const onPointerDown = (event) => {
+    if (event.pointerType === 'pen') penDown.current = true
+
+    if (event.pointerType === 'touch') {
+      // Le stylet a la priorité : la paume et les doigts ne perturbent pas le tracé.
+      if (penDown.current) {
+        ignored.current.add(event.pointerId)
+        return
+      }
+
+      touches.current.set(event.pointerId, localPoint(event))
+      if (touches.current.size >= 2) {
+        // Deux doigts : on annule ce que le premier avait amorcé et on navigue.
+        cancelPending()
+        for (const id of touches.current.keys()) ignored.current.add(id)
+        startGesture()
+        return
+      }
+    }
+
     // Alt (Option) + clic : on pointe l'endroit, quel que soit l'outil, sans rien changer.
     if (event.altKey && event.button === 0 && sessionRef.current) {
       const at = toWorld(event.clientX, event.clientY)
@@ -1541,7 +1609,12 @@ export default function Whiteboard() {
       spaceDown.current ||
       current === 'hand' ||
       current === 'link'
-    event.currentTarget.setPointerCapture(event.pointerId)
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // Le pointeur peut déjà être relâché (stylet qui quitte la surface) : sans gravité.
+    }
 
     // Glisser sur le vide en mode sélection : rectangle de sélection.
     if (current === 'select' && !isPan && event.button === 0) {
@@ -1581,6 +1654,19 @@ export default function Whiteboard() {
   }
 
   const onPointerMove = (event) => {
+    if (event.pointerType === 'touch' && touches.current.has(event.pointerId)) {
+      touches.current.set(event.pointerId, localPoint(event))
+      if (gesture.current) {
+        const move = nextMove.current ?? {}
+        move.gesture = true
+        nextMove.current = move
+        scheduleFrame()
+        return
+      }
+      if (ignored.current.has(event.pointerId)) return
+    }
+    if (event.pointerType === 'touch' && ignored.current.has(event.pointerId)) return
+
     pointerScreen.current = { x: event.clientX, y: event.clientY }
 
     // Secouer la souris fait grossir son curseur chez les autres.
@@ -1604,7 +1690,8 @@ export default function Whiteboard() {
     } else if (draftRef.current) {
       move.draft = toWorld(event.clientX, event.clientY)
     } else if (liveStroke.current) {
-      const events = event.nativeEvent.getCoalescedEvents?.() ?? [event.nativeEvent]
+      const coalesced = event.nativeEvent.getCoalescedEvents?.()
+      const events = coalesced?.length ? coalesced : [event.nativeEvent]
       const fresh = events.map((e) => toWorld(e.clientX, e.clientY))
       liveStroke.current.points.push(...fresh)
       move.paint = true
@@ -1625,6 +1712,19 @@ export default function Whiteboard() {
   }
 
   const endPointer = (event) => {
+    if (event.pointerType === 'pen') penDown.current = false
+
+    if (event.pointerType === 'touch') {
+      touches.current.delete(event.pointerId)
+      if (touches.current.size < 2) gesture.current = null
+      if (ignored.current.has(event.pointerId)) {
+        ignored.current.delete(event.pointerId)
+        // Le doigt restant après un pincement ne doit pas se mettre à dessiner.
+        if (touches.current.size === 0) ignored.current.clear()
+        return
+      }
+    }
+
     const selecting = bandRef.current
     if (selecting) {
       bandRef.current = null
@@ -1730,8 +1830,12 @@ export default function Whiteboard() {
         tool: toolRef.current,
       })
     }
+    if (move.gesture) applyGestureRef.current()
     if (move.paint) painters.current.paintStrokes()
   }, [])
+
+  const applyGestureRef = useRef(null)
+  applyGestureRef.current = applyGesture
 
   const scheduleFrame = useCallback(() => {
     if (!frame.current) frame.current = requestAnimationFrame(flushMove)

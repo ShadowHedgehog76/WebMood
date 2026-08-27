@@ -57,14 +57,32 @@ export default function BoardRail({
 }) {
   const current = boards.find((board) => board.id === currentId)
   const [name, setName] = useState(current?.name ?? '')
+  const [open, setOpen] = useState(false) // ouverture au doigt : le survol n'existe pas
   const fileRef = useRef(null)
+  const root = useRef(null)
+
+  useEffect(() => {
+    if (!open) return undefined
+    const away = (event) => {
+      if (!root.current?.contains(event.target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', away)
+    return () => document.removeEventListener('pointerdown', away)
+  }, [open])
 
   useEffect(() => {
     setName(current?.name ?? '')
   }, [current?.name])
 
   return (
-    <nav className="rail" aria-label="Tableaux">
+    <nav
+      ref={root}
+      className={`rail ${open ? 'is-open' : ''}`}
+      aria-label="Tableaux"
+      onPointerDown={(event) => {
+        if (event.pointerType === 'touch') setOpen(true)
+      }}
+    >
       <div className="rail__inner">
         
 

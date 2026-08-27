@@ -70,7 +70,11 @@ function BoardItem({
     onSelect(item.id, event.shiftKey)
     if (editing || !draggable) return
 
-    event.currentTarget.setPointerCapture(event.pointerId)
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // Pointeur déjà relâché : on continue sans capture.
+    }
     const point = toWorld(event.clientX, event.clientY)
     drag.current = {
       mode,

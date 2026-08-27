@@ -50,8 +50,16 @@ export default function ChatRail({ self, peers, messages, unread, onSend, onOpen
     <aside
       className={`chat-rail ${open ? 'is-open' : ''}`}
       style={{ height }}
-      onPointerEnter={() => setOpen(true)}
-      onPointerLeave={() => setOpen(false)}
+      onPointerEnter={(event) => {
+        if (event.pointerType !== 'touch') setOpen(true)
+      }}
+      onPointerLeave={(event) => {
+        if (event.pointerType !== 'touch') setOpen(false)
+      }}
+      onPointerDown={(event) => {
+        // Sur tablette, on ouvre et on referme au doigt.
+        if (event.pointerType === 'touch') setOpen((value) => !value)
+      }}
       onFocusCapture={() => setOpen(true)}
     >
       <div className="chat-rail__inner">

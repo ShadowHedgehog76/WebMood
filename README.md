@@ -77,6 +77,18 @@ choisie sert au crayon, et au fil sélectionné le cas échéant.
 - **Zoomer** : `⌘` + molette (ou pincement), boutons en bas à droite ; clic sur le pourcentage
   pour réinitialiser la vue
 
+## Tablette et stylet
+
+Tout se pilote au doigt comme à la souris :
+
+- **un doigt** utilise l'outil courant (dessiner, sélectionner, tracer une forme…) ;
+- **deux doigts** déplacent et **zooment au pincement**, ancrés sur le point milieu — poser le
+  second doigt **annule** ce que le premier venait de commencer, donc pas de trait parasite ;
+- le **stylet est prioritaire** : tant qu'il touche la surface, doigts et paume sont ignorés
+  (rejet de paume), et un doigt écarté ne peut plus rien déclencher jusqu'à ce qu'il se lève ;
+- les **rails s'ouvrent au toucher** (le survol n'existe pas sur tablette), et se referment en
+  touchant ailleurs.
+
 ## Sélection multiple
 
 En mode sélection, **glisser sur le vide trace un lasso** ; `⇧`-clic ajoute ou retire un bloc,
