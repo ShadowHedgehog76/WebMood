@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useRef } from 'react'
 import FrameBlock from './FrameBlock.jsx'
 import GroupBlock from './GroupBlock.jsx'
 import MindNode from './MindNode.jsx'
+import MapBlock from './MapBlock.jsx'
 import MarkdownBlock from './MarkdownBlock.jsx'
 import ShapeBlock from './ShapeBlock.jsx'
 import TableBlock from './TableBlock.jsx'
@@ -19,6 +20,7 @@ const MIN_SIZES = {
   shape: { w: 16, h: 16 },
   table: { w: 200, h: 70 },
   markdown: { w: 200, h: 110 },
+  map: { w: 220, h: 160 },
   text: { w: 90, h: 48 },
   code: { w: 180, h: 90 },
   default: { w: 60, h: 60 },
@@ -157,7 +159,7 @@ function BoardItem({
       onPointerCancel={endDrag}
       onDoubleClick={(event) => {
         // Les blocs visuels ont leur éditeur toujours ouvert : rien à basculer.
-        if (!draggable || !['code', 'node', 'text', 'table', 'markdown'].includes(item.type)) return
+        if (!draggable || !['code', 'node', 'text', 'table', 'markdown', 'map'].includes(item.type)) return
         event.stopPropagation()
         onEdit(editing ? null : item.id)
       }}
@@ -186,6 +188,10 @@ function BoardItem({
       {item.type === 'group' && <GroupBlock item={item} />}
 
       {item.type === 'shape' && <ShapeBlock item={item} />}
+
+      {item.type === 'map' && (
+        <MapBlock item={item} editing={editing} onChange={onChange} onEdit={onEdit} />
+      )}
 
       {item.type === 'markdown' && (
         <MarkdownBlock item={item} editing={editing} onChange={onChange} onEdit={onEdit} />

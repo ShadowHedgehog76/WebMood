@@ -146,6 +146,23 @@ export function textItem({ at = { x: 0, y: 0 }, color = '#f5a623', variant = 'no
   }
 }
 
+const MAP_SIZE = { w: 420, h: 300 }
+
+/** Bloc carte : une fenêtre sur le monde, centrée quelque part. */
+export function mapItem({ at = { x: 0, y: 0 }, lat = 48.8566, lon = 2.3522, zoom = 12 } = {}) {
+  return {
+    id: newId(),
+    type: 'map',
+    lat,
+    lon,
+    zoom,
+    pins: [],
+    x: Math.round(at.x - MAP_SIZE.w / 2),
+    y: Math.round(at.y - MAP_SIZE.h / 2),
+    ...MAP_SIZE,
+  }
+}
+
 const MARKDOWN_SIZE = { w: 380, h: 260 }
 
 /** Bloc markdown : le texte source, rendu à la volée. */

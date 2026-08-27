@@ -44,6 +44,7 @@ import {
   newId,
   nodeItem,
   sketchItem,
+  mapItem,
   markdownItem,
   tableItem,
   textItem,
@@ -1529,6 +1530,10 @@ export default function Whiteboard() {
     const item = markdownItem({ at: viewportCenter(), color: colorRef.current })
     addItems([item])
     setEditingId(item.id)
+  }, [addItems, viewportCenter])
+
+  const addMap = useCallback(() => {
+    addItems([mapItem({ at: viewportCenter() })])
   }, [addItems, viewportCenter])
 
   const addTable = useCallback(() => {
@@ -3599,6 +3604,7 @@ export default function Whiteboard() {
           zoomOut: () => zoomAt(innerWidth / 2, innerHeight / 2, 1 / 1.2),
           resetView,
           addMarkdown,
+          addMap,
           addTable,
           resizeTable,
           copyStyle,

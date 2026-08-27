@@ -31,6 +31,7 @@ import {
   IconLaser,
   IconLine,
   IconMagnet,
+  IconMap,
   IconLink,
   IconLinkStyle,
   IconLock,
@@ -704,6 +705,9 @@ export default function Toolbar({
         </button>
         <button className="tool" onClick={actions.addMarkdown} {...tipProps('Bloc markdown')}>
           <IconMarkdown />
+        </button>
+        <button className="tool" onClick={actions.addMap} {...tipProps('Carte')}>
+          <IconMap />
         </button>
         <button
           className="tool"

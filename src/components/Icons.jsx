@@ -575,3 +575,10 @@ export const IconBucket = (props) => (
     <path d="M20.5 15.5c1 1.4 1.5 2.4 1.5 3.1a1.6 1.6 0 0 1-3.2 0c0-.7.5-1.7 1.7-3.1Z" fill="currentColor" strokeWidth="1.2" />
   </Icon>
 )
+
+export const IconMap = (props) => (
+  <Icon {...props}>
+    <path d="M9 4.5 3.5 6.8v12.7L9 17.2l6 2.3 5.5-2.3V4.5L15 6.8Z" />
+    <path d="M9 4.5v12.7M15 6.8v12.7" />
+  </Icon>
+)
