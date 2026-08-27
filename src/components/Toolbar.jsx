@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import ContextBar from './ContextBar.jsx'
 import { ALIGNMENTS } from '../lib/align.js'
 import { ARROW_STYLES, LINK_STYLES } from '../lib/links.js'
@@ -21,17 +22,20 @@ import {
   IconFill,
   IconFrame,
   IconFreeform,
+  IconGrid,
   IconGroup,
   IconHand,
   IconImage,
   IconLaser,
   IconLine,
+  IconMagnet,
   IconLink,
   IconLinkStyle,
   IconLock,
   IconMarkdown,
   IconMarker,
   IconMindmap,
+  IconMinus,
   IconNote,
   IconOutline,
   IconRadial,
@@ -39,6 +43,7 @@ import {
   IconTree,
   IconPen,
   IconPicker,
+  IconPlus,
   IconPlay,
   IconRedo,
   IconStrokeEraser,
@@ -99,6 +104,9 @@ export default function Toolbar({
   selectedItem,
   frameCount,
   timerOpen,
+  settings,
+  onSetting,
+  scale,
   styleReady,
   selectedTable,
   selectedMarkdown,
@@ -112,6 +120,21 @@ export default function Toolbar({
   showArrows,
   actions,
 }) {
+  const rowRef = useRef(null)
+
+  // La rangée du bas se replie sur plusieurs lignes quand l'écran rétrécit. Sa hauteur
+  // est publiée en variable CSS : la barre de réglages et la minimap se placent dessus
+  // au lieu de deviner une valeur fixe.
+  useEffect(() => {
+    const row = rowRef.current
+    if (!row) return undefined
+    const observer = new ResizeObserver(([entry]) => {
+      document.documentElement.style.setProperty('--row-h', `${Math.round(entry.contentRect.height)}px`)
+    })
+    observer.observe(row)
+    return () => observer.disconnect()
+  }, [])
+
   const ShapeGlyph = SHAPE_ICONS[shape]
   const toggleMenu = (name) => setMenu((open) => (open === name ? null : name))
 
@@ -216,7 +239,7 @@ export default function Toolbar({
   const separator = <span className="context-bar__sep" />
 
   // Réglages du moment : ils dépendent de la sélection, ou à défaut de l'outil actif.
-  const settings = (() => {
+  const contextual = (() => {
     if (selectedCount > 1) {
       return [
         styleReady ? (
@@ -530,14 +553,14 @@ export default function Toolbar({
       >
         <IconLock size={17} open={!selectedItem.locked} />
       </button>
-      {!selectedItem.locked && settings && separator}
+      {!selectedItem.locked && contextual && separator}
     </>
   ) : null
 
-  const bar = selectedItem?.locked ? lock : (lock || settings) && (
+  const bar = selectedItem?.locked ? lock : (lock || contextual) && (
     <>
       {lock}
-      {settings}
+      {contextual}
     </>
   )
 
@@ -545,6 +568,7 @@ export default function Toolbar({
     <>
       <ContextBar visible={Boolean(bar)}>{bar}</ContextBar>
 
+      <div className="toolbar-row" ref={rowRef}>
       <div className="toolbar">
       <div className="toolbar__group">
         <button
@@ -722,6 +746,41 @@ export default function Toolbar({
         <button className="tool tool--danger" onClick={actions.clear} {...tipProps('Tout effacer')}>
           <IconTrash />
         </button>
+      </div>
+      </div>
+
+      {/* Réglages rapides et zoom : posés à droite de la barre, sans déplacer celle-ci. */}
+      <div className="toolbar-aside">
+      <div className="quickset">
+        <button
+          className={`tool ${settings.snap ? 'is-active' : ''}`}
+          onClick={() => onSetting('snap', !settings.snap)}
+          {...tipProps(settings.snap ? 'Aimantation active' : 'Aimantation coupée')}
+        >
+          <IconMagnet />
+        </button>
+        <button
+          className={`tool ${settings.grid ? 'is-active' : ''}`}
+          onClick={() => onSetting('grid', !settings.grid)}
+          {...tipProps(settings.grid ? 'Grille visible' : 'Grille masquée')}
+        >
+          <IconGrid />
+        </button>
+      </div>
+
+      {/* Le zoom rejoint la rangée : dans son coin, il finissait sous la barre
+          dès que celle-ci se repliait. */}
+      <div className="zoom">
+        <button onClick={actions.zoomOut} {...tipProps('Dézoomer')}>
+          <IconMinus size={16} />
+        </button>
+        <button className="zoom__label" onClick={actions.resetView} {...tipProps('Réinitialiser la vue')}>
+          {Math.round(scale * 100)}%
+        </button>
+        <button onClick={actions.zoomIn} {...tipProps('Zoomer')}>
+          <IconPlus size={16} />
+        </button>
+      </div>
       </div>
       </div>
     </>

@@ -495,3 +495,25 @@ export const IconSettings = (props) => (
     <path d="M19.4 14.5a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.56-1.1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1.03Z" />
   </Icon>
 )
+
+export const IconMagnet = (props) => (
+  <Icon {...props}>
+    <path d="M6 4.5v7a6 6 0 0 0 12 0v-7" />
+    <path d="M6 10.5h4.5M13.5 10.5H18" />
+    <path d="M6 4.5h4.5M13.5 4.5H18" />
+  </Icon>
+)
+
+export const IconGrid = (props) => (
+  <Icon {...props}>
+    <circle cx="6" cy="6" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="6" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="18" cy="6" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="6" cy="12" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="18" cy="12" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="6" cy="18" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="18" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="18" cy="18" r="1.1" fill="currentColor" stroke="none" />
+  </Icon>
+)

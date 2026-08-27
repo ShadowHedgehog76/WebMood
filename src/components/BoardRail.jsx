@@ -7,7 +7,6 @@ import {
   IconExportSelection,
   IconImage,
   IconHelp,
-  IconSettings,
   IconShare,
   IconTrash,
   IconUpload,
@@ -55,7 +54,6 @@ export default function BoardRail({
   onImportJson,
   onShare,
   onTour,
-  onSettings,
   live,
   hasSelection,
 }) {
@@ -145,13 +143,6 @@ export default function BoardRail({
         </button>
 
         <span className="rail__sep" />
-
-        <button className="rail__action" onClick={onSettings}>
-          <span className="rail__slot">
-            <IconSettings size={18} />
-          </span>
-          <span>Réglages</span>
-        </button>
 
         <button className="rail__action" onClick={onTour}>
           <span className="rail__slot">

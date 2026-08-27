@@ -15,7 +15,6 @@ import Search from './Search.jsx'
 import Laser from './Laser.jsx'
 import Timer from './Timer.jsx'
 import Present from './Present.jsx'
-import Settings from './Settings.jsx'
 import { decodeBoard } from '../lib/share.js'
 import { makeCode, openSession } from '../lib/session.js'
 import { createShakeDetector } from '../lib/shake.js'
@@ -179,7 +178,6 @@ export default function Whiteboard() {
   const [linkStyle, setLinkStyle] = useState('curve') // 'curve', 'elbow' ou 'straight'
   const [dash, setDash] = useState('solid') // type de trait : plein, tirets, points…
   const [settings, setSettings] = useState(loadSettings)
-  const [showSettings, setShowSettings] = useState(false)
   const settingsRef = useRef(settings)
   settingsRef.current = settings
   const [searching, setSearching] = useState(false)
@@ -3323,7 +3321,6 @@ export default function Whiteboard() {
         onImportJson={importJson}
         onShare={() => setShare(true)}
         onTour={() => setTourStep(0)}
-        onSettings={() => setShowSettings(true)}
         live={Boolean(session)}
         hasSelection={selectedIds.length > 0}
       />
@@ -3351,6 +3348,9 @@ export default function Whiteboard() {
         selectedItem={selectedItem}
         frameCount={frames.length}
         timerOpen={showTimer}
+        settings={settings}
+        onSetting={changeSetting}
+        scale={view.scale}
         styleReady={styleReady}
         selectedTable={selectedItem?.type === 'table' ? selectedItem : null}
         selectedMarkdown={selectedItem?.type === 'markdown' ? selectedItem : null}
@@ -3380,6 +3380,9 @@ export default function Whiteboard() {
           straightenShape,
           present: () => showFrame(0),
           toggleTimer: () => setShowTimer((open) => !open),
+          zoomIn: () => zoomAt(innerWidth / 2, innerHeight / 2, 1.2),
+          zoomOut: () => zoomAt(innerWidth / 2, innerHeight / 2, 1 / 1.2),
+          resetView,
           addMarkdown,
           addTable,
           resizeTable,
@@ -3414,18 +3417,6 @@ export default function Whiteboard() {
           event.target.value = ''
         }}
       />
-
-      <div className="zoom">
-        <button onClick={() => zoomAt(innerWidth / 2, innerHeight / 2, 1 / 1.2)} {...tipProps('Dézoomer')}>
-          <IconMinus size={16} />
-        </button>
-        <button className="zoom__label" onClick={resetView} {...tipProps('Réinitialiser la vue')}>
-          {Math.round(view.scale * 100)}%
-        </button>
-        <button onClick={() => zoomAt(innerWidth / 2, innerHeight / 2, 1.2)} {...tipProps('Zoomer')}>
-          <IconPlus size={16} />
-        </button>
-      </div>
 
       {doc.items.length > 0 && (
         <Minimap
@@ -3465,13 +3456,6 @@ export default function Whiteboard() {
           onExit={leavePresent}
         />
       )}
-
-      <Settings
-        open={showSettings}
-        settings={settings}
-        onChange={changeSetting}
-        onClose={() => setShowSettings(false)}
-      />
 
       <p className={`status status--${status}`}>{statusLabel}</p>
 

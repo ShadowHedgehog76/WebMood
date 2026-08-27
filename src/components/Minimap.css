@@ -1,8 +1,11 @@
+/* Remontée au-dessus de la rangée du bas : celle-ci s'étend maintenant jusqu'aux
+   réglages rapides, et venait recouvrir le coin. */
 .minimap {
   animation: fade-in var(--slow) ease;
   position: absolute;
-  left: 24px;
-  bottom: 24px;
+  /* Décalée à droite du rail : en remontant, elle venait buter contre son bas. */
+  left: 96px;
+  bottom: calc(38px + var(--row-h, 54px));
   z-index: 12;
   overflow: hidden;
   border-radius: 12px;
