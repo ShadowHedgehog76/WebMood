@@ -21,7 +21,7 @@ import { makeCode, openSession } from '../lib/session.js'
 import { createShakeDetector } from '../lib/shake.js'
 import { caretPoint } from '../lib/caret.js'
 import { snapPosition } from '../lib/snap.js'
-import { floodFill, traceOutline } from '../lib/bucket.js'
+import { dilateIntoWalls, floodFill, traceOutline } from '../lib/bucket.js'
 import { DASHABLE_BRUSHES, paintBrush } from '../lib/brushes.js'
 import {
   followJoins,
@@ -1397,8 +1397,9 @@ export default function Whiteboard() {
         .reverse()
         .find((item) => insideShape(item, point))
       if (shape) {
+        // Le fond a sa propre couleur : le contour de la forme n'est pas repeint.
         // Le seau peint franchement, là où la case « remplir » ne fait que teinter.
-        changeItem(shape.id, { color: colorRef.current, filled: true, solid: true }, true)
+        changeItem(shape.id, { fill: colorRef.current, filled: true, solid: true }, true)
         return
       }
 
@@ -1418,7 +1419,10 @@ export default function Whiteboard() {
         return
       }
 
-      const outline = traceOutline(result.mask, image.width, image.height)
+      // La tache glisse sous les traits qui l'arrêtent : sans cela, un liseré blanc
+      // reste visible entre la peinture et le contour.
+      const spread = dilateIntoWalls(result.mask, image.data, image.width, image.height)
+      const outline = traceOutline(spread, image.width, image.height)
       if (outline.length < 8) return
 
       // Retour au monde, puis dégrossissage : le contour suit les pixels, il n'a pas
@@ -1446,7 +1450,10 @@ export default function Whiteboard() {
           color: colorRef.current,
           strokeWidth: 1,
           filled: true,
+          // `solid` : le fond est franc. `paint` : c'est une tache, elle vit derrière
+          // les traits qui l'ont arrêtée et ne les recouvre jamais.
           solid: true,
+          paint: true,
           closed: true,
           nodes: corners.map((point_) => ({
             x: (point_.x - minX) / w,
@@ -3207,12 +3214,19 @@ export default function Whiteboard() {
 
   // Les zones de groupe se dessinent derrière les blocs.
   const ordered = useMemo(() => {
-    const behind = doc.items.filter((item) => item.type === 'frame' || item.type === 'group')
+    const behind = doc.items.filter(
+      (item) =>
+        item.type === 'frame' ||
+        item.type === 'group' ||
+        (item.type === 'shape' && item.paint),
+    )
     if (!behind.length) return doc.items
-    // Les cadres passent tout derrière, les zones de groupe juste après.
+    // Les cadres passent tout derrière, puis les zones de groupe, puis les taches de
+    // peinture : une tache ne doit jamais recouvrir le contour qui l'a arrêtée.
     const frames = behind.filter((item) => item.type === 'frame')
     const groups = behind.filter((item) => item.type === 'group')
-    return [...frames, ...groups, ...doc.items.filter((item) => !behind.includes(item))]
+    const paint = behind.filter((item) => item.type === 'shape')
+    return [...frames, ...groups, ...paint, ...doc.items.filter((item) => !behind.includes(item))]
   }, [doc.items])
 
   const selectedGroup = useMemo(

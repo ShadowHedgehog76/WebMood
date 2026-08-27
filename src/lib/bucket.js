@@ -53,6 +53,35 @@ export function floodFill(pixels, width, height, startX, startY) {
   return { mask, escaped, filled, blocked: false }
 }
 
+/**
+ * Étend la tache sous les traits qui l'arrêtent, et seulement sous eux : on ne gagne que
+ * des pixels déjà occupés. Sans cette marge, la peinture s'arrête au premier pixel
+ * atténué du contour et laisse un liseré blanc entre elle et le trait.
+ */
+export function dilateIntoWalls(mask, pixels, width, height, steps = 4) {
+  let current = mask
+  for (let pass = 0; pass < steps; pass++) {
+    const next = current.slice()
+    for (let index = 0; index < current.length; index++) {
+      if (current[index]) continue
+      // On ne déborde que dans un mur : jamais dans le vide au-delà.
+      if (pixels[index * 4 + 3] <= WALL) continue
+      const x = index % width
+      const y = (index - x) / width
+      if (
+        (x > 0 && current[index - 1]) ||
+        (x < width - 1 && current[index + 1]) ||
+        (y > 0 && current[index - width]) ||
+        (y < height - 1 && current[index + width])
+      ) {
+        next[index] = 1
+      }
+    }
+    current = next
+  }
+  return current
+}
+
 const NEIGHBOURS = [
   [1, 0],
   [1, 1],
