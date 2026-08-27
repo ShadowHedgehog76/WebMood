@@ -42,7 +42,7 @@ export const hasPressure = (points) => points.some((point) => point.p !== undefi
  * mieux, c'est la vitesse : une main qui accélère pose moins de matière. Dans les deux
  * cas les bouts s'affinent, comme une plume qu'on lève.
  */
-function widths(points, size) {
+function widths(points, size, taper = true) {
   const pressure = hasPressure(points)
 
   const speeds = points.map((point, index) => {
@@ -73,6 +73,8 @@ function widths(points, size) {
       thin = Math.max(0.45, Math.min(1.25, 1.25 - speed / 34))
     }
 
+    if (!taper) return Math.max(0.4, size * thin)
+
     // Effilage des extrémités, sur les cinq premiers et derniers points.
     const fromStart = Math.min(1, (index + 1) / 5)
     const fromEnd = Math.min(1, (points.length - index) / 5)
@@ -80,8 +82,18 @@ function widths(points, size) {
   })
 }
 
-/** Trait d'épaisseur constante, éventuellement en tirets. */
+/**
+ * Trait d'épaisseur constante, éventuellement en tirets. Sous un stylet, il suit quand
+ * même la pression : c'est ce qu'on attend d'une pointe posée sur du papier. Il ne
+ * s'effile pas aux bouts, lui — c'est ce qui le distingue du pinceau.
+ */
 function paintPlain(ctx, points, stroke, width) {
+  const dashed = stroke.dash && stroke.dash !== 'solid'
+  if (!dashed && hasPressure(points)) {
+    paintTapered(ctx, points, widths(points, width, false))
+    return
+  }
+
   if (stroke.dash && stroke.dash !== 'solid') ctx.setLineDash(dashPattern(stroke.dash, width))
   ctx.lineWidth = width
   ctx.beginPath()

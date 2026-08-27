@@ -1,0 +1,52 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Ce que rapporte la tablette</title>
+<style>
+  body { margin: 0; font: 15px/1.5 -apple-system, system-ui, sans-serif; color: #1c1c1e; }
+  #zone { height: 60vh; background: #f4f4f6; border-bottom: 1px solid #ddd; touch-action: none; cursor: crosshair; }
+  table { border-collapse: collapse; margin: 16px; }
+  td { padding: 4px 14px 4px 0; }
+  td:first-child { color: #8a8a8e; }
+  b { font-variant-numeric: tabular-nums; }
+  #trace { margin: 0 16px; color: #8a8a8e; font-size: 13px; white-space: pre-wrap; }
+</style>
+<div id="zone">Dessinez ici avec le stylet, en appuyant plus ou moins fort.</div>
+<table>
+  <tr><td>pointerType</td><td><b id="type">—</b></td></tr>
+  <tr><td>pressure</td><td><b id="p">—</b></td></tr>
+  <tr><td>min / max relevés</td><td><b id="mm">—</b></td></tr>
+  <tr><td>valeurs distinctes</td><td><b id="n">—</b></td></tr>
+  <tr><td>tiltX / tiltY</td><td><b id="tilt">—</b></td></tr>
+  <tr><td>buttons</td><td><b id="b">—</b></td></tr>
+  <tr><td>verdict</td><td><b id="verdict">—</b></td></tr>
+</table>
+<p id="trace"></p>
+<script>
+  const zone = document.getElementById('zone')
+  const vues = new Set()
+  let min = 1
+  let max = 0
+  const montre = (e) => {
+    document.getElementById('type').textContent = e.pointerType
+    document.getElementById('p').textContent = e.pressure.toFixed(3)
+    document.getElementById('tilt').textContent = `${e.tiltX} / ${e.tiltY}`
+    document.getElementById('b').textContent = e.buttons
+    // Même règle que le tableau : on garde toute pression qui n'est pas le 0,5 d'une souris.
+    const gardée = e.pointerType === 'pen' || (e.pressure > 0 && e.pressure !== 0.5)
+    document.getElementById('verdict').textContent =
+      e.pointerType === 'touch'
+        ? 'doigt : pression ignorée'
+        : gardée
+          ? 'pression retenue par le tableau'
+          : 'pression ignorée (valeur de souris)'
+    if (e.buttons) {
+      vues.add(e.pressure.toFixed(3))
+      min = Math.min(min, e.pressure)
+      max = Math.max(max, e.pressure)
+      document.getElementById('mm').textContent = `${min.toFixed(3)} / ${max.toFixed(3)}`
+      document.getElementById('n').textContent = vues.size
+      document.getElementById('trace').textContent = [...vues].slice(-24).join(' ')
+    }
+  }
+  for (const nom of ['pointerdown', 'pointermove', 'pointerup']) zone.addEventListener(nom, montre)
+</script>
