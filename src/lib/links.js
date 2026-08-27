@@ -245,17 +245,23 @@ export function arcDirection(from, to) {
  * Chemin raccourci aux extrémités qui portent une pointe de flèche : sans cela, le trait
  * dépasse de la pointe (surtout avec un trait épais et des bouts arrondis).
  */
-export function pathWithArrows(geometry, arrow, width) {
-  const cut = width * 3.2
-  const back = (point, direction) => ({
-    x: point.x - direction.x * cut,
-    y: point.y - direction.y * cut,
-  })
+export function pathWithArrows(geometry, arrow, width, connected = {}) {
+  // La pointe s'élargit en s'éloignant de son sommet : au-delà d'environ 1,2 × l'épaisseur
+  // elle couvre déjà tout le trait. On coupe donc court — et encore moins quand
+  // l'extrémité est raccrochée à quelque chose, pour ne laisser aucun jour.
+  const back = (point, direction, close) => {
+    const cut = width * (close ? 1.2 : 1.9)
+    return { x: point.x - direction.x * cut, y: point.y - direction.y * cut }
+  }
 
   const start =
-    arrow === 'start' || arrow === 'both' ? back(geometry.start, geometry.startDir) : geometry.start
+    arrow === 'start' || arrow === 'both'
+      ? back(geometry.start, geometry.startDir, connected.start)
+      : geometry.start
   const end =
-    arrow === 'end' || arrow === 'both' ? back(geometry.end, geometry.endDir) : geometry.end
+    arrow === 'end' || arrow === 'both'
+      ? back(geometry.end, geometry.endDir, connected.end)
+      : geometry.end
 
   return `M ${start.x} ${start.y} C ${geometry.c1.x} ${geometry.c1.y}, ${geometry.c2.x} ${geometry.c2.y}, ${end.x} ${end.y}`
 }

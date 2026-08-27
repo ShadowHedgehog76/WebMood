@@ -74,7 +74,13 @@ function Links({ links, items, branches, view, selectedId, interactive, pending,
             startDir: arcDirection(first, start),
             endDir: arcDirection(second, end),
           }
-          const d = pathWithArrows(geometry, link.arrow, width)
+          // Une extrémité posée sur un bloc ou raccordée à un autre arc : on rentre la
+          // pointe au plus près pour qu'aucun jour n'apparaisse.
+          const connected = {
+            start: Boolean(link.from?.id || link.joins?.from),
+            end: Boolean(link.to?.id || link.joins?.to),
+          }
+          const d = pathWithArrows(geometry, link.arrow, width, connected)
 
           return (
             <g key={link.id} className={`link ${selected ? 'is-selected' : ''}`}>
@@ -111,7 +117,7 @@ function Links({ links, items, branches, view, selectedId, interactive, pending,
             {selected && <path className="link__halo" d={geometry.d} strokeWidth={width * 4.5} />}
             <path
               className="link__line"
-              d={pathWithArrows(geometry, link.arrow, width)}
+              d={pathWithArrows(geometry, link.arrow, width, { start: true, end: true })}
               stroke={color}
               strokeWidth={width}
               fill="none"

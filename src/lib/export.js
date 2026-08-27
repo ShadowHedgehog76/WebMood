@@ -173,7 +173,7 @@ function drawLinks(ctx, doc, items) {
     ctx.fillStyle = color
     ctx.lineWidth = width
     ctx.lineCap = 'round'
-    ctx.stroke(new Path2D(pathWithArrows(geometry, link.arrow, width)))
+    ctx.stroke(new Path2D(pathWithArrows(geometry, link.arrow, width, { start: true, end: true })))
     if (link.arrow === 'start' || link.arrow === 'both') {
       ctx.fill(new Path2D(arrowHead(geometry.start, geometry.startDir, width * 5)))
     }
