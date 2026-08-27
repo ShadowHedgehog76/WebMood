@@ -500,7 +500,7 @@ export default function Toolbar({
 
   const lock = selectedItem ? (
     <>
-      {brush}
+      {!selectedItem.locked && brush}
       <button
         className={`chip chip--icon ${selectedItem.locked ? 'is-active' : ''}`}
         onClick={actions.toggleLock}

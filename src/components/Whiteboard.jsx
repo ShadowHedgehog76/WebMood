@@ -2470,7 +2470,8 @@ export default function Whiteboard() {
     commit((d) => ({
       ...d,
       items: d.items.map((item) => {
-        if (!chosen.has(item.id)) return item
+        // Un bloc verrouillé garde son allure, comme il garde sa place.
+        if (!chosen.has(item.id) || item.locked) return item
         const patch = { color: style.color ?? item.color }
         if (item.type === 'shape' && style.strokeWidth !== undefined) {
           patch.strokeWidth = style.strokeWidth
