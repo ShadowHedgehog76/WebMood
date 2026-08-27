@@ -126,8 +126,8 @@ export default function Toolbar({
     </div>
   )
 
-  const sizes = (values, active, onPick, unit) =>
-    values.map((value) => (
+  const sizes = (values, active, onPick, unit, range) => {
+    const buttons = values.map((value) => (
       <button
         key={value}
         className={`size ${active === value ? 'is-active' : ''}`}
@@ -137,6 +137,36 @@ export default function Toolbar({
         <span style={{ width: Math.min(20, value) + 2, height: Math.min(20, value) + 2 }} />
       </button>
     ))
+
+    if (!range) return buttons
+
+    // Cinquième choix : une épaisseur libre, réglée au curseur.
+    const [min, max] = range
+    return [
+      ...buttons,
+      <div className="menu" key="custom">
+        <button
+          className={`size size--custom ${values.includes(active) ? '' : 'is-active'}`}
+          onClick={() => toggleMenu('size')}
+          {...tipProps(`${unit} libre`)}
+        >
+          {active}
+        </button>
+        {menu === 'size' && (
+          <div className="menu__panel menu__panel--size">
+            <input
+              type="range"
+              min={min}
+              max={max}
+              value={Math.min(max, Math.max(min, active))}
+              onChange={(event) => onPick(Number(event.target.value))}
+            />
+            <span>{active} px</span>
+          </div>
+        )}
+      </div>,
+    ]
+  }
 
   const separator = <span className="context-bar__sep" />
 
@@ -248,7 +278,7 @@ export default function Toolbar({
           >
             <IconNote size={17} />
           </button>
-          {sizes(textSizes, selectedText.size ?? 16, actions.pickTextSize, 'Texte')}
+          {sizes(textSizes, selectedText.size ?? 16, actions.pickTextSize, 'Texte', [10, 96])}
         </>
       )
     }
@@ -282,7 +312,13 @@ export default function Toolbar({
               <IconFill size={17} />
             </button>
           )}
-          {sizes([2, 5, 10, 20], selectedShape?.strokeWidth ?? size, actions.pickSize, 'Épaisseur')}
+          {sizes(
+            [2, 5, 10, 20],
+            selectedShape?.strokeWidth ?? size,
+            actions.pickSize,
+            'Épaisseur',
+            [1, 60],
+          )}
         </>
       )
     }
@@ -292,7 +328,7 @@ export default function Toolbar({
         <>
           {colorButton}
           {separator}
-          {sizes([2, 5, 10, 20], size, actions.pickSize, 'Épaisseur')}
+          {sizes([2, 5, 10, 20], size, actions.pickSize, 'Épaisseur', [1, 60])}
         </>
       )
     }

@@ -12,6 +12,9 @@ npm run dev
 
 ## Mise en ligne (GitHub Pages)
 
+Le dépôt vit sur un **Forgejo** auto-hébergé, répliqué automatiquement vers GitHub — c'est
+GitHub qui publie le site.
+
 Le site est publié automatiquement à chaque `push` sur `main` par le workflow
 [.github/workflows/deploy.yml](.github/workflows/deploy.yml) : `npm ci`, `npm run build`, puis
 envoi de `dist/` à GitHub Pages.
@@ -64,6 +67,8 @@ choisie sert au crayon, et au fil sélectionné le cas échéant.
 
 - Outils : **sélection** (`V`), **crayon** (`P`), **gomme** (`E`), **forme** (`S`), **connexion**
   (`L`), **groupe** (`G`), **main** (`H`), **note** (`T`)
+- Épaisseurs : quatre valeurs courantes plus un réglage libre au curseur ; même principe pour
+  la taille d'un texte
 - Icônes SVG dessinées dans [Icons.jsx](src/components/Icons.jsx) : pas d'emoji, pas de police
   d'icônes
 - palette complète, 4 épaisseurs
@@ -101,8 +106,9 @@ pose la forme à une taille par défaut. Les six formes — **rectangle, ellipse
 losange, ligne, flèche** — se choisissent dans la barre de réglages, et changer de forme avec
 une forme sélectionnée **transforme celle-ci**.
 
-- La **palette** donne la couleur, les quatre pastilles l'**épaisseur du trait**, et le bouton
-  de remplissage colore l'intérieur des formes fermées.
+- La **palette** donne la couleur, quatre pastilles les **épaisseurs courantes** et un
+  cinquième bouton une **épaisseur libre** (curseur de 1 à 60 px, valeur affichée sur le
+  bouton) ; celui de remplissage colore l'intérieur des formes fermées.
 - Ces réglages s'appliquent à la forme sélectionnée, et servent de valeurs par défaut pour la
   suivante.
 - Les formes se déplacent et se redimensionnent comme les autres blocs, et le trait garde son
