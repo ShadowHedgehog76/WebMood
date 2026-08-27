@@ -10,6 +10,7 @@ import ChatRail from './ChatRail.jsx'
 import QuickChat from './QuickChat.jsx'
 import Pings from './Pings.jsx'
 import ArcHandles from './ArcHandles.jsx'
+import Tour, { STEPS } from './Tour.jsx'
 import { decodeBoard } from '../lib/share.js'
 import { makeCode, openSession } from '../lib/session.js'
 import { createShakeDetector } from '../lib/shake.js'
@@ -190,6 +191,7 @@ export default function Whiteboard() {
   const [pings, setPings] = useState([])
   const [tween, setTween] = useState(false) // les blocs glissent vers leur nouvelle place
   const [arcSnap, setArcSnap] = useState(null) // accroche visée en déplaçant une extrémité
+  const [tourStep, setTourStep] = useState(null) // visite guidée : étape en cours
   const [quick, setQuick] = useState(null) // saisie rapide ouverte à la position du curseur
   const [liveStatus, setLiveStatus] = useState('idle')
   const [liveError, setLiveError] = useState(null)
@@ -908,6 +910,18 @@ export default function Whiteboard() {
   useEffect(() => {
     localStorage.setItem('moodboard:name', peerName)
   }, [peerName])
+
+  // Première venue : on propose la visite, une seule fois.
+  useEffect(() => {
+    if (localStorage.getItem('moodboard:tour')) return undefined
+    const timer = setTimeout(() => setTourStep(0), 700)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const closeTour = useCallback(() => {
+    setTourStep(null)
+    localStorage.setItem('moodboard:tour', 'vu')
+  }, [])
 
 
   // Trois envois par seconde : assez pour suivre, assez peu pour ne jamais s'engorger.
@@ -2707,6 +2721,15 @@ export default function Whiteboard() {
         <canvas ref={drawRef} className="board__canvas" />
       </div>
 
+      {tourStep !== null && (
+        <Tour
+          step={tourStep}
+          onStep={(next) => (next < 0 || next >= STEPS.length ? closeTour() : setTourStep(next))}
+          onClose={closeTour}
+          actions={{ setTool: chooseTool }}
+        />
+      )}
+
       <ShareDialog
         open={share}
         onClose={() => setShare(false)}
@@ -2768,6 +2791,7 @@ export default function Whiteboard() {
         onExportJson={saveJson}
         onImportJson={importJson}
         onShare={() => setShare(true)}
+        onTour={() => setTourStep(0)}
         live={Boolean(session)}
         hasSelection={selectedIds.length > 0}
       />

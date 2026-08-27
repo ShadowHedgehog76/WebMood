@@ -6,6 +6,7 @@ import {
   IconCopy,
   IconExportSelection,
   IconImage,
+  IconHelp,
   IconShare,
   IconTrash,
   IconUpload,
@@ -52,6 +53,7 @@ export default function BoardRail({
   onExportJson,
   onImportJson,
   onShare,
+  onTour,
   live,
   hasSelection,
 }) {
@@ -141,6 +143,13 @@ export default function BoardRail({
         </button>
 
         <span className="rail__sep" />
+
+        <button className="rail__action" onClick={onTour}>
+          <span className="rail__slot">
+            <IconHelp size={18} />
+          </span>
+          <span>Découvrir le tableau</span>
+        </button>
 
         <button className={`rail__action ${live ? 'is-live' : ''}`} onClick={onShare}>
           <span className="rail__slot">

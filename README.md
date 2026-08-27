@@ -28,6 +28,17 @@ développement on reste à la racine. Si le dépôt est renommé, c'est la seule
 
 Tout est local au navigateur (IndexedDB) : aucun serveur, aucune donnée qui sort de la machine.
 
+## Premier passage
+
+À la première visite, une **visite guidée** se lance toute seule
+([Tour.jsx](src/components/Tour.jsx)) : huit étapes qui éclairent tour à tour la barre
+d'outils, la barre de réglages, les boutons d'insertion, la navigation, le rail des tableaux
+et le partage. Chaque étape peut préparer le décor — celle des réglages sélectionne le crayon
+pour que la barre soit visible.
+
+Flèches ou `Entrée` pour avancer, `Échap` ou « Passer » pour sortir. Elle ne revient plus
+ensuite, et se rejoue quand on veut depuis **Découvrir le tableau**, dans le rail de gauche.
+
 ## Barre d'outils
 
 La barre principale ne fait qu'une chose : **choisir un outil ou insérer un bloc**. Aucun de
