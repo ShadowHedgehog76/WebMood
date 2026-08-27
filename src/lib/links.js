@@ -180,19 +180,57 @@ export function resolveEnd(end, byId) {
   return { x: end.x, y: end.y }
 }
 
-/** Courbe quadratique passant par son point de contrôle. */
-export function arcPath(a, bend, b) {
-  return `M ${a.x} ${a.y} Q ${bend.x} ${bend.y} ${b.x} ${b.y}`
+/** Courbe de Bézier cubique : une tangente par extrémité. */
+export function arcPath(a, c1, c2, b) {
+  return `M ${a.x} ${a.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${b.x} ${b.y}`
 }
 
-/** Point de contrôle par défaut : le milieu, décalé perpendiculairement. */
-export function defaultBend(a, b, ratio = 0.22) {
+/** Tangentes par défaut : au tiers et aux deux tiers, décalées perpendiculairement. */
+export function defaultControls(a, b, ratio = 0.22) {
   const dx = b.x - a.x
   const dy = b.y - a.y
   return {
-    x: (a.x + b.x) / 2 - dy * ratio,
-    y: (a.y + b.y) / 2 + dx * ratio,
+    c1: { x: a.x + dx / 3 - dy * ratio, y: a.y + dy / 3 + dx * ratio },
+    c2: { x: a.x + (dx * 2) / 3 - dy * ratio, y: a.y + (dy * 2) / 3 + dx * ratio },
   }
+}
+
+/**
+ * Tangentes d'un arc. Les premiers arcs n'avaient qu'un point de courbure (quadratique) :
+ * on le convertit à la volée, la conversion étant exacte.
+ */
+export function controlsOf(link, a, b) {
+  if (link.c1 && link.c2) return { c1: link.c1, c2: link.c2 }
+  if (link.bend) {
+    return {
+      c1: { x: a.x + ((link.bend.x - a.x) * 2) / 3, y: a.y + ((link.bend.y - a.y) * 2) / 3 },
+      c2: { x: b.x + ((link.bend.x - b.x) * 2) / 3, y: b.y + ((link.bend.y - b.y) * 2) / 3 },
+    }
+  }
+  return defaultControls(a, b)
+}
+
+/**
+ * Tangente opposée à un raccord : la sortie prolonge l'entrée, ce qui donne une jonction
+ * lisse — le passage d'un arc à l'autre se fait sans cassure.
+ */
+export function mirrorControl(joint, control, keepLength) {
+  const dx = joint.x - control.x
+  const dy = joint.y - control.y
+  const length = Math.hypot(dx, dy) || 1
+  const reach = keepLength ?? length
+  return { x: joint.x + (dx / length) * reach, y: joint.y + (dy / length) * reach }
+}
+
+/** Extrémités des autres arcs, candidates à un raccord. */
+export function arcEnds(links, exceptId) {
+  const ends = []
+  for (const link of links) {
+    if (link.kind !== 'arc' || link.id === exceptId) continue
+    ends.push({ arc: link.id, end: 'from', point: link.from })
+    ends.push({ arc: link.id, end: 'to', point: link.to })
+  }
+  return ends
 }
 
 /** Tangente à l'extrémité d'une courbe quadratique, pour poser une pointe de flèche. */

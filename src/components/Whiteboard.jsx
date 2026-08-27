@@ -39,7 +39,15 @@ import {
   shapeItem,
 } from '../lib/shapes.js'
 import { alignItems } from '../lib/align.js'
-import { anchorsOf, arcPath, defaultBend, nearestAnchor, resolveEnd, snapReach } from '../lib/links.js'
+import {
+  arcEnds,
+  controlsOf,
+  defaultControls,
+  mirrorControl,
+  nearestAnchor,
+  resolveEnd,
+  snapReach,
+} from '../lib/links.js'
 import { GROUP_TINTS, QUICK_COLORS } from '../lib/palette.js'
 import {
   deleteBoard,
@@ -1557,39 +1565,152 @@ export default function Whiteboard() {
 
   /* ---------- connexions ---------- */
 
-  /** Déplacement d'une poignée d'arc : mise à jour continue, sans entrée d'historique. */
+  /** Les deux arcs d'un raccord, et l'extrémité concernée de chacun. */
+  const joinOf = (link, key) => link.joins?.[key] ?? null
+
+  /**
+   * Déplacement d'une poignée d'arc, en continu et sans entrée d'historique.
+   * Un raccord entraîne l'arc voisin : extrémités confondues, tangentes opposées.
+   */
   const dragArc = useCallback(
     (id, key, point) => {
-      const value = key === 'bend' ? point : { x: Math.round(point.x), y: Math.round(point.y) }
-      write(
-        (d) => ({
+      write((d) => {
+        const arc = d.links.find((link) => link.id === id)
+        if (!arc) return d
+
+        const byId = new Map(d.items.map((item) => [item.id, item]))
+        const changes = new Map()
+        const value = { x: Math.round(point.x), y: Math.round(point.y) }
+
+        if (key === 'from' || key === 'to') {
+          changes.set(id, { [key]: value })
+          // L'arc raccordé garde le même point de jonction.
+          const join = joinOf(arc, key)
+          if (join) changes.set(join.arc, { [join.end]: value })
+        } else {
+          changes.set(id, { [key]: point })
+          // Tangente d'un raccord : celle d'en face reste dans son prolongement.
+          const side = key === 'c1' ? 'from' : 'to'
+          const join = joinOf(arc, side)
+          if (join) {
+            const joint = resolveEnd(arc[side], byId)
+            const neighbour = d.links.find((link) => link.id === join.arc)
+            if (joint && neighbour) {
+              const ends = {
+                from: resolveEnd(neighbour.from, byId),
+                to: resolveEnd(neighbour.to, byId),
+              }
+              const controls = controlsOf(neighbour, ends.from, ends.to)
+              const target = join.end === 'from' ? 'c1' : 'c2'
+              const length = Math.hypot(
+                controls[target].x - joint.x,
+                controls[target].y - joint.y,
+              )
+              changes.set(join.arc, { [target]: mirrorControl(joint, point, length) })
+            }
+          }
+        }
+
+        return {
           ...d,
-          links: d.links.map((link) => (link.id === id ? { ...link, [key]: value } : link)),
-        }),
-        false,
-      )
-      if (key !== 'bend') {
-        const found = nearestAnchor(
+          links: d.links.map((link) =>
+            changes.has(link.id) ? { ...link, ...changes.get(link.id) } : link,
+          ),
+        }
+      }, false)
+
+      if (key === 'from' || key === 'to') {
+        const anchor = nearestAnchor(
           docRef.current.items.filter((item) => item.type !== 'group'),
           point,
           snapReach(viewRef.current.scale),
         )
-        setArcSnap(found ? { x: found.x, y: found.y } : null)
+        const end = nearestArcEnd(id, point)
+        setArcSnap(end ?? (anchor ? { x: anchor.x, y: anchor.y } : null))
       }
     },
     [write],
   )
 
+  /** Extrémité d'un autre arc, si elle est à portée. */
+  const nearestArcEnd = useCallback((id, point) => {
+    const byId = new Map(docRef.current.items.map((item) => [item.id, item]))
+    const reach = snapReach(viewRef.current.scale)
+    let best = null
+    for (const candidate of arcEnds(docRef.current.links, id)) {
+      const position = resolveEnd(candidate.point, byId)
+      if (!position) continue
+      const distance = Math.hypot(position.x - point.x, position.y - point.y)
+      if (distance <= reach && (!best || distance < best.distance)) {
+        best = { ...candidate, x: position.x, y: position.y, distance }
+      }
+    }
+    return best
+  }, [])
+
+  /**
+   * Fin de déplacement : l'extrémité s'accroche à un bloc, se raccorde à un autre arc,
+   * ou reste où elle est. Un raccord aligne les deux tangentes.
+   */
   const dropArc = useCallback(
     (id, key, point) => {
       setArcSnap(null)
-      const value = key === 'bend' ? point : snapEnd(point)
-      commit((d) => ({
-        ...d,
-        links: d.links.map((link) => (link.id === id ? { ...link, [key]: value } : link)),
-      }))
+
+      if (key === 'c1' || key === 'c2') {
+        commit((d) => ({
+          ...d,
+          links: d.links.map((link) => (link.id === id ? { ...link, [key]: point } : link)),
+        }))
+        return
+      }
+
+      const junction = nearestArcEnd(id, point)
+      const value = junction ? { x: junction.x, y: junction.y } : snapEnd(point)
+
+      commit((d) => {
+        const byId = new Map(d.items.map((item) => [item.id, item]))
+        const links = d.links.map((link) => {
+          if (link.id !== id) return link
+          const joins = { ...link.joins }
+          if (junction) joins[key] = { arc: junction.arc, end: junction.end }
+          else delete joins[key]
+          return { ...link, [key]: value, joins }
+        })
+
+        if (!junction) return { ...d, links }
+
+        // On enregistre le raccord des deux côtés et on aligne les tangentes.
+        return {
+          ...d,
+          links: links.map((link) => {
+            if (link.id !== junction.arc) return link
+            const joins = { ...link.joins, [junction.end]: { arc: id, end: key } }
+            const mine = links.find((entry) => entry.id === id)
+            const ends = { from: resolveEnd(mine.from, byId), to: resolveEnd(mine.to, byId) }
+            const controls = controlsOf(mine, ends.from ?? point, ends.to ?? point)
+            const joint = { x: junction.x, y: junction.y }
+            const target = junction.end === 'from' ? 'c1' : 'c2'
+            const source = key === 'from' ? controls.c1 : controls.c2
+            const neighbourEnds = {
+              from: resolveEnd(link.from, byId),
+              to: resolveEnd(link.to, byId),
+            }
+            const neighbourControls = controlsOf(link, neighbourEnds.from, neighbourEnds.to)
+            const length = Math.hypot(
+              neighbourControls[target].x - joint.x,
+              neighbourControls[target].y - joint.y,
+            )
+            return {
+              ...link,
+              [junction.end]: joint,
+              joins,
+              [target]: mirrorControl(joint, source, length),
+            }
+          }),
+        }
+      })
     },
-    [commit, snapEnd],
+    [commit, nearestArcEnd, snapEnd],
   )
 
   const changeLink = useCallback(
@@ -1911,7 +2032,7 @@ export default function Whiteboard() {
             kind: 'arc',
             from,
             to,
-            bend: defaultBend(a, b),
+            ...defaultControls(a, b),
             color: colorRef.current,
             width: sizeRef.current,
             arrow: arrowRef.current === 'none' ? 'none' : arrowRef.current,
@@ -2293,10 +2414,15 @@ export default function Whiteboard() {
     [nodes, selectedItemId],
   )
 
-  const selectedArc = useMemo(
-    () => doc.links.find((link) => link.id === selectedLinkId && link.kind === 'arc') ?? null,
-    [doc.links, selectedLinkId],
-  )
+  /** L'arc choisi et ceux qui lui sont raccordés : leurs poignées s'affichent ensemble. */
+  const editedArcs = useMemo(() => {
+    const chosen = doc.links.find((link) => link.id === selectedLinkId && link.kind === 'arc')
+    if (!chosen) return []
+    const neighbours = Object.values(chosen.joins ?? {})
+      .map((join) => doc.links.find((link) => link.id === join.arc))
+      .filter(Boolean)
+    return [chosen, ...neighbours]
+  }, [doc.links, selectedLinkId])
 
   // Aperçu de l'arc en cours de tracé.
   const arcPreview = useMemo(() => {
@@ -2305,7 +2431,7 @@ export default function Whiteboard() {
     const from = resolveEnd(draft.from, byId)
     const to = draft.to
     if (!from || !to) return null
-    return { from, to, bend: defaultBend(from, to) }
+    return { from, to, ...defaultControls(from, to) }
   }, [draft, doc.items])
 
   const pendingLink = useMemo(() => {
@@ -2493,16 +2619,17 @@ export default function Whiteboard() {
             shaking={shaking}
           />
 
-          {selectedArc && (
+          {editedArcs.map((arc) => (
             <ArcHandles
-              link={selectedArc}
+              key={arc.id}
+              link={arc}
               items={doc.items}
-              snap={arcSnap}
+              snap={arc.id === selectedLinkId ? arcSnap : null}
               toWorld={toWorld}
-              onDrag={(key, point) => dragArc(selectedArc.id, key, point)}
-              onDrop={(key, point) => dropArc(selectedArc.id, key, point)}
+              onDrag={(key, point) => dragArc(arc.id, key, point)}
+              onDrop={(key, point) => dropArc(arc.id, key, point)}
             />
-          )}
+          ))}
 
           {guides.map((guide, index) => (
             <span

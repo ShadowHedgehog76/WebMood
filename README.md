@@ -124,10 +124,20 @@ points sont rangés en proportions du cadre, donc le dessin suit fidèlement le
 redimensionnement ; un tracé qui revient près de son point de départ **se referme** tout seul
 et devient remplissable.
 
-**Arc** : une courbe à trois poignées — les deux extrémités et le point de courbure. Une
-extrémité lâchée près d'un bloc **s'accroche** à l'un de ses cinq points d'ancrage (quatre
-côtés et centre) et le **suit ensuite quand on le déplace** ; lâchée dans le vide, elle reste
-où elle est. L'arc accepte les mêmes styles de pointe que les connexions.
+**Arc** : une vraie courbe de Bézier cubique. Sélectionné, il montre ses **deux extrémités**
+(ronds) et leurs **tangentes** (losanges), reliées par un fin trait bleu — on façonne la
+courbe en tirant les losanges.
+
+- Une extrémité lâchée près d'un **bloc** s'accroche à l'un de ses cinq points d'ancrage
+  (quatre côtés et centre) et le suit ensuite quand on le déplace.
+- Une extrémité lâchée sur **l'extrémité d'un autre arc** les **raccorde** : le point devient
+  commun, les deux tangentes s'alignent dans le prolongement l'une de l'autre, et le passage
+  d'un arc à l'autre se fait sans cassure. Déplacer une tangente du raccord entraîne celle
+  d'en face — la jonction reste lisse.
+- Sélectionner un arc affiche aussi les poignées de **ceux qui lui sont raccordés**, pour
+  travailler la ligne entière d'un seul coup d'œil.
+
+Les arcs acceptent les mêmes styles de pointe que les connexions.
 
 - La **palette** donne la couleur, quatre pastilles les **épaisseurs courantes** et un
   cinquième bouton une **épaisseur libre** (curseur de 1 à 60 px, valeur affichée sur le

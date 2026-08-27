@@ -3,6 +3,7 @@ import {
   ARROW_STYLES,
   arcDirection,
   arcPath,
+  controlsOf,
   arrowHead,
   linkGeometry,
   pendingGeometry,
@@ -59,20 +60,22 @@ function Links({ links, items, branches, view, selectedId, interactive, pending,
           const b = resolveEnd(link.to, byId)
           if (!a || !b) return null
 
+          const { c1, c2 } = controlsOf(link, a, b)
           const start = project(a)
           const end = project(b)
-          const bend = project(link.bend)
-          const d = arcPath(start, bend, end)
+          const first = project(c1)
+          const second = project(c2)
+          const d = arcPath(start, first, second, end)
 
           return (
             <g key={link.id} className={`link ${selected ? 'is-selected' : ''}`}>
               {selected && <path className="link__halo" d={d} strokeWidth={width * 4.5} />}
               <path className="link__line" d={d} stroke={color} strokeWidth={width} fill="none" />
               {(link.arrow === 'start' || link.arrow === 'both') && (
-                <path d={arrowHead(start, arcDirection(bend, start), width * 5)} fill={color} />
+                <path d={arrowHead(start, arcDirection(first, start), width * 5)} fill={color} />
               )}
               {(link.arrow === 'end' || link.arrow === 'both') && (
-                <path d={arrowHead(end, arcDirection(bend, end), width * 5)} fill={color} />
+                <path d={arrowHead(end, arcDirection(second, end), width * 5)} fill={color} />
               )}
               {interactive && (
                 <path
@@ -127,7 +130,7 @@ function Links({ links, items, branches, view, selectedId, interactive, pending,
       {arc && (
         <path
           className="link__pending"
-          d={arcPath(project(arc.from), project(arc.bend), project(arc.to))}
+          d={arcPath(project(arc.from), project(arc.c1), project(arc.c2), project(arc.to))}
         />
       )}
 

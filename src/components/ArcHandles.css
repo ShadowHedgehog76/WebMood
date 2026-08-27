@@ -16,10 +16,21 @@
   cursor: grabbing;
 }
 
-.arc-handle.is-bend {
-  border-radius: calc(3px * var(--inv, 1));
-  border-color: #8b5cf6;
+.arc-handle.is-tangent {
+  border-radius: calc(2px * var(--inv, 1));
+  border-color: #3b82f6;
   transform: rotate(45deg);
+}
+
+/* Trait fin entre une extrémité et sa tangente. */
+.arc-rod {
+  position: absolute;
+  height: calc(1.5px * var(--inv, 1));
+  margin-top: calc(-0.75px * var(--inv, 1));
+  background: #3b82f6;
+  transform-origin: 0 50%;
+  pointer-events: none;
+  opacity: 0.75;
 }
 
 /* Accroche visée pendant le déplacement d'une extrémité. */
