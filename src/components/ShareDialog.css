@@ -231,3 +231,29 @@
 .share__btn:active:not(:disabled) {
   transform: scale(0.96);
 }
+
+/* Choix du transport : une case et son explication, sous le pavé d'information. */
+.share__switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.035);
+  cursor: pointer;
+  font-size: 13.5px;
+}
+
+.share__switch input {
+  margin-top: 2px;
+  accent-color: #1c1c1e;
+}
+
+.share__switch em {
+  display: block;
+  margin-top: 2px;
+  color: #8a8a93;
+  font-size: 12.5px;
+  font-style: normal;
+  line-height: 1.35;
+}

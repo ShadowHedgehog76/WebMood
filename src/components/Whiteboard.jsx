@@ -17,7 +17,7 @@ import Laser from './Laser.jsx'
 import Timer from './Timer.jsx'
 import Present from './Present.jsx'
 import { decodeBoard } from '../lib/share.js'
-import { makeCode, openSession } from '../lib/session.js'
+import { makeCode, openSession, supabaseConfigured } from '../lib/session.js'
 import { createShakeDetector } from '../lib/shake.js'
 import { caretPoint } from '../lib/caret.js'
 import { snapPosition } from '../lib/snap.js'
@@ -876,6 +876,8 @@ export default function Whiteboard() {
       setLiveStatus('connecting')
       try {
         const handle = await openSession({
+          // Supabase tient le canal ; le pair-à-pair reste sous l'interrupteur.
+          transport: settingsRef.current.p2p ? 'p2p' : 'supabase',
           host,
           // Une reprise d'hôte réutilise le code existant : sans ça, personne ne
           // retrouverait la session.
@@ -3630,6 +3632,9 @@ export default function Whiteboard() {
         peers={peers}
         name={peerName}
         setName={setPeerName}
+        settings={settings}
+        onSetting={changeSetting}
+        supabaseReady={supabaseConfigured()}
         status={liveStatus}
         error={liveError}
         onImportCode={importCode}

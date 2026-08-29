@@ -10,6 +10,9 @@ import './ShareDialog.css'
 export default function ShareDialog({
   open,
   onClose,
+  settings,
+  onSetting,
+  supabaseReady,
   doc,
   boardName,
   session,
@@ -127,7 +130,7 @@ export default function ShareDialog({
                 <ul className="share__peers">
                   <li>
                     <span className="share__dot" style={{ background: session.self.color }} />
-                    {name || 'Vous'} <em>{session.isHost ? '· hôte' : '· vous'}</em>
+                    {name || 'Vous'} <em>· vous</em>
                   </li>
                   {peers.map((peer) => (
                     <li key={peer.id}>
@@ -147,10 +150,26 @@ export default function ShareDialog({
             ) : (
               <>
                 <p className="share__hint">
-                  Une session met les navigateurs en relation directe. Le tableau de l'hôte est
-                  envoyé aux arrivants, puis chaque modification et chaque curseur circulent en
-                  direct.
+                  {settings.p2p
+                    ? 'Une session met les navigateurs en relation directe, sans service au milieu. Il faut alors que le réseau le permette, et la session se réorganise quand celui qui l’a ouverte s’en va.'
+                    : 'Une session passe par Supabase, qui tient le canal et la liste des participants. Une coupure se répare toute seule, et personne n’a de rôle particulier.'}
                 </p>
+
+                <label className="share__switch">
+                  <input
+                    type="checkbox"
+                    checked={settings.p2p}
+                    onChange={(event) => onSetting('p2p', event.target.checked)}
+                  />
+                  <span>
+                    Passer en pair-à-pair
+                    <em>
+                      {supabaseReady
+                        ? 'Sans service au milieu : utile sur un réseau local sans internet.'
+                        : 'Supabase n’est pas configuré : le pair-à-pair est le seul transport disponible.'}
+                    </em>
+                  </span>
+                </label>
                 <div className="share__row">
                   <span />
                   <button

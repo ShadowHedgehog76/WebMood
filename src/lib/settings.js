@@ -5,6 +5,7 @@ const KEY = 'moodboard:settings'
 export const DEFAULTS = {
   snap: true, // aimantation aux bords et aux centres des autres blocs
   grid: true, // pointillés de la grille
+  p2p: false, // sessions en pair-à-pair plutôt que par Supabase
 }
 
 export function loadSettings() {
