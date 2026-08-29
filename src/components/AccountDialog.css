@@ -152,3 +152,82 @@
 .account__btn--wide:disabled small {
   color: inherit;
 }
+
+/* Zone dangereuse : repliée par défaut, et rouge dès qu'on l'ouvre. */
+.account__danger > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #c0392b;
+  list-style: none;
+  padding: 4px 0;
+  user-select: none;
+  transition: opacity var(--fast, 120ms) var(--ease, ease);
+}
+
+.account__danger > summary::-webkit-details-marker {
+  display: none;
+}
+
+.account__danger > summary::before {
+  content: '▸ ';
+  display: inline-block;
+  transition: transform var(--fast, 120ms) var(--ease, ease);
+}
+
+.account__danger[open] > summary::before {
+  transform: rotate(90deg) translateY(1px);
+}
+
+.account__danger > summary:hover {
+  opacity: 0.75;
+}
+
+.account__btn--danger {
+  border-color: rgba(192, 57, 43, 0.35);
+  color: #c0392b;
+}
+
+.account__btn--danger:hover:not(:disabled) {
+  background: rgba(192, 57, 43, 0.08);
+}
+
+.account__confirm {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid rgba(192, 57, 43, 0.3);
+  border-radius: 10px;
+  background: rgba(192, 57, 43, 0.05);
+  animation: account-danger var(--base, 200ms) var(--ease, ease);
+}
+
+.account__confirm p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #7a3229;
+}
+
+.account__type {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(192, 57, 43, 0.35);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+}
+
+@keyframes account-danger {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account__confirm {
+    animation: none;
+  }
+}

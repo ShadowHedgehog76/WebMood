@@ -328,6 +328,19 @@ suffit pas (long moment hors ligne, machine qui découvre le compte) :
 - **Récupérer les tableaux du compte** : tous les tableaux du compte sont réécrits en local,
   le tableau ouvert se rafraîchit à l'écran — ce qui est en ligne écrase les copies locales.
 
+Une **zone dangereuse**, repliée par défaut, tient les deux gestes sans retour :
+
+- **Effacer mes données en ligne** : les tableaux en base et les images du Storage
+  disparaissent, le compte reste, et les tableaux de ce navigateur ne sont pas touchés ;
+- **Supprimer mon compte** : le compte et tout ce qu'il contient. Il faut **retaper son
+  adresse** pour débloquer le bouton.
+
+Un navigateur n'a pas le droit d'écrire dans `auth.users` : la suppression passe par une
+fonction en base (`public.delete_account`, en `security definer`) qui ne sait supprimer que
+son appelant — `auth.uid()`, jamais un identifiant reçu de l'extérieur. Elle n'est exécutable
+que par un utilisateur connecté ; le rôle anonyme n'y a pas accès. Après coup, les `cloudId`
+de l'index local sont oubliés, sans quoi ils désigneraient des lignes disparues.
+
 Le tout demande les deux clés publiques du projet, dans un `.env` local (voir
 [.env.example](.env.example)) et, pour la mise en ligne, dans les secrets du dépôt
 (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) — sans elles, le bouton reste éteint et

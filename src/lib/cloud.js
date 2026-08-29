@@ -125,6 +125,46 @@ export async function removeBoard(id) {
 }
 
 /** Rend un tableau lisible par toute personne ayant le lien. */
+/* ---------- actions sans retour ---------- */
+
+/**
+ * Vide le compte : les tableaux en base et les images du Storage disparaissent, le
+ * compte lui-même reste. Les copies locales ne sont pas touchées.
+ */
+export async function wipeCloud(userId) {
+  const supabase = await db()
+
+  const { data: files, error: listing } = await supabase.storage.from(BUCKET).list(userId, {
+    limit: 1000,
+  })
+  if (listing) throw new Error(listing.message)
+  if (files?.length) {
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .remove(files.map((file) => `${userId}/${file.name}`))
+    if (error) throw new Error(error.message)
+  }
+
+  const { error, count } = await supabase
+    .from('boards')
+    .delete({ count: 'exact' })
+    .eq('owner', userId)
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
+/**
+ * Supprime le compte. Le navigateur n'a pas les droits d'écrire dans `auth.users` :
+ * c'est une fonction en base, qui ne sait supprimer que l'appelant (`auth.uid()`).
+ * Tableaux et images partent avec.
+ */
+export async function deleteAccount() {
+  const supabase = await db()
+  const { error } = await supabase.rpc('delete_account')
+  if (error) throw new Error(traduire(error.message))
+  await supabase.auth.signOut()
+}
+
 export async function publishBoard(id, is_public = true) {
   const { error } = await (await db()).from('boards').update({ is_public }).eq('id', id)
   if (error) throw new Error(error.message)

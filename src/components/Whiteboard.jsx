@@ -573,6 +573,30 @@ export default function Whiteboard() {
     return done
   }, [applyDoc])
 
+  /** Les identifiants en ligne ne pointent plus sur rien : on les retire de l'index. */
+  const forgetCloudIds = useCallback(async () => {
+    const list = boardsRef.current.map(({ cloudId, ...board }) => board)
+    boardsRef.current = list
+    setBoards(list)
+    await saveIndex({ boards: list, currentId: boardIdRef.current })
+  }, [])
+
+  /** Efface tout ce que le compte garde en ligne, sans toucher aux tableaux d'ici. */
+  const wipeCloud = useCallback(async () => {
+    const user = accountRef.current
+    if (!user) throw new Error('Connectez-vous d’abord.')
+    const count = await cloud.wipeCloud(user.id)
+    await forgetCloudIds()
+    return count
+  }, [forgetCloudIds])
+
+  /** Supprime le compte lui-même. Les tableaux de ce navigateur restent. */
+  const deleteAccount = useCallback(async () => {
+    if (!accountRef.current) throw new Error('Connectez-vous d’abord.')
+    await cloud.deleteAccount()
+    await forgetCloudIds()
+  }, [forgetCloudIds])
+
   const publicLink = useCallback(async () => {
     const user = accountRef.current
     const entry = boardsRef.current.find((board) => board.id === boardIdRef.current)
@@ -3848,6 +3872,8 @@ export default function Whiteboard() {
         onSignOut={cloud.signOut}
         onPushAll={pushAll}
         onPullAll={pullAll}
+        onWipeCloud={wipeCloud}
+        onDeleteAccount={deleteAccount}
       />
 
       {tourStep !== null && (

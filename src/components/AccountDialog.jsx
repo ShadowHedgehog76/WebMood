@@ -15,12 +15,16 @@ export default function AccountDialog({
   onSignOut,
   onPushAll,
   onPullAll,
+  onWipeCloud,
+  onDeleteAccount,
 }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
+  const [danger, setDanger] = useState(null) // 'wipe' | 'delete' : confirmation en cours
+  const [typed, setTyped] = useState('')
 
   if (!open) return null
 
@@ -98,6 +102,115 @@ export default function AccountDialog({
                 Se déconnecter
               </button>
             </div>
+
+            <hr className="account__sep" />
+
+            {/* Deux gestes sans retour : chacun demande une confirmation explicite,
+                et la seconde exige de retaper son adresse. */}
+            <details
+              className="account__danger"
+              onToggle={(event) => {
+                if (!event.currentTarget.open) {
+                  setDanger(null)
+                  setTyped('')
+                }
+              }}
+            >
+              <summary>Zone dangereuse</summary>
+
+              {danger === 'wipe' ? (
+                <div className="account__confirm">
+                  <p>
+                    Les tableaux et les images enregistrés en ligne seront effacés. Les
+                    tableaux de <strong>ce navigateur</strong> ne sont pas touchés — mais ils
+                    ne seront plus sauvegardés nulle part ailleurs.
+                  </p>
+                  <div className="account__row">
+                    <button className="account__btn" onClick={() => setDanger(null)} disabled={busy}>
+                      Annuler
+                    </button>
+                    <button
+                      className="account__btn account__btn--danger"
+                      disabled={busy}
+                      onClick={() =>
+                        run(
+                          async () => {
+                            const count = await onWipeCloud()
+                            setDanger(null)
+                            return count
+                          },
+                          (count) =>
+                            `${count} tableau${count > 1 ? 'x' : ''} effacé${count > 1 ? 's' : ''} en ligne.`,
+                        )
+                      }
+                    >
+                      Effacer définitivement
+                    </button>
+                  </div>
+                </div>
+              ) : danger === 'delete' ? (
+                <div className="account__confirm">
+                  <p>
+                    Le compte, ses tableaux et ses images disparaissent pour de bon. Rien ne
+                    permettra de les retrouver. Retapez <strong>{user.email}</strong> pour
+                    confirmer.
+                  </p>
+                  <input
+                    className="account__type"
+                    value={typed}
+                    autoFocus
+                    placeholder={user.email}
+                    onChange={(event) => setTyped(event.target.value)}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  />
+                  <div className="account__row">
+                    <button
+                      className="account__btn"
+                      onClick={() => {
+                        setDanger(null)
+                        setTyped('')
+                      }}
+                      disabled={busy}
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      className="account__btn account__btn--danger"
+                      disabled={busy || typed.trim().toLowerCase() !== user.email.toLowerCase()}
+                      onClick={() =>
+                        run(async () => {
+                          await onDeleteAccount()
+                          setDanger(null)
+                          setTyped('')
+                          onClose()
+                        })
+                      }
+                    >
+                      Supprimer le compte
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="account__stack">
+                  <button
+                    className="account__btn account__btn--wide account__btn--danger"
+                    onClick={() => setDanger('wipe')}
+                    disabled={busy}
+                  >
+                    <span>Effacer mes données en ligne</span>
+                    <small>Tableaux et images du compte. Les copies locales restent.</small>
+                  </button>
+                  <button
+                    className="account__btn account__btn--wide account__btn--danger"
+                    onClick={() => setDanger('delete')}
+                    disabled={busy}
+                  >
+                    <span>Supprimer mon compte</span>
+                    <small>Le compte et tout ce qu'il contient, sans retour possible.</small>
+                  </button>
+                </div>
+              )}
+            </details>
           </>
         ) : (
           <>
