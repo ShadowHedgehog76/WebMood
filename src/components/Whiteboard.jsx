@@ -488,24 +488,25 @@ export default function Whiteboard() {
       await saveIndex({ boards: list, currentId: boardIdRef.current })
     }
 
-    try {
-      const light = await cloud.uploadImages(doc, user.id)
-      if (light !== doc) {
-        // Les images sont devenues des adresses : le document local suit.
+    const light = await cloud.uploadImages(doc, user.id)
+    if (light !== doc) {
+      // Les images sont devenues des adresses : la copie locale suit, sinon on
+      // renverrait le même base64 à chaque enregistrement.
+      if (boardId === boardIdRef.current) {
         docRef.current = { ...docRef.current, items: light.items }
         setDoc(docRef.current)
+      } else {
+        await saveBoard(boardId, light)
       }
-      await cloud.saveBoard({
-        id: entry.cloudId,
-        owner: user.id,
-        name: entry.name,
-        doc: { strokes: light.strokes, items: light.items, links: light.links },
-        preview: makePreview(light),
-      })
-    } catch (error) {
-      announceNotice(`Enregistrement en ligne impossible : ${error.message}`)
     }
-  }, [announceNotice])
+    await cloud.saveBoard({
+      id: entry.cloudId,
+      owner: user.id,
+      name: entry.name,
+      doc: { strokes: light.strokes, items: light.items, links: light.links },
+      preview: makePreview(light),
+    })
+  }, [])
 
   /** Un tableau connu du serveur mais pas encore ici : on va chercher son contenu. */
   const pullBoard = useCallback(async (entry) => {
@@ -517,6 +518,47 @@ export default function Whiteboard() {
       return null
     }
   }, [])
+
+  /** Tout envoyer : chaque tableau d'ici prend (ou reprend) sa place en ligne. */
+  const pushAll = useCallback(async () => {
+    if (!accountRef.current) throw new Error('Connectez-vous d’abord.')
+    let done = 0
+    for (const entry of [...boardsRef.current]) {
+      const content =
+        entry.id === boardIdRef.current ? docRef.current : await loadBoard(entry.id)
+      if (!content) continue
+      await pushBoard(entry.id, content)
+      done += 1
+    }
+    return done
+  }, [pushBoard])
+
+  /** Tout récupérer : les tableaux du compte écrasent leur copie locale. */
+  const pullAll = useCallback(async () => {
+    if (!accountRef.current) throw new Error('Connectez-vous d’abord.')
+    const remote = await cloud.listBoards()
+    let list = [...boardsRef.current]
+    let done = 0
+
+    for (const board of remote) {
+      const full = await cloud.fetchBoard(board.id)
+      if (!full?.doc) continue
+
+      const known = list.find((entry) => entry.cloudId === board.id)
+      const id = known?.id ?? newBoardId()
+      await saveBoard(id, full.doc)
+      const entry = { ...known, id, cloudId: board.id, name: board.name, preview: board.preview ?? null }
+      list = known ? list.map((item) => (item.id === id ? entry : item)) : [...list, entry]
+      // Le tableau ouvert doit montrer ce qu'on vient de récupérer.
+      if (id === boardIdRef.current) applyDoc(full.doc)
+      done += 1
+    }
+
+    boardsRef.current = list
+    setBoards(list)
+    await saveIndex({ boards: list, currentId: boardIdRef.current })
+    return done
+  }, [applyDoc])
 
   const publicLink = useCallback(async () => {
     const user = accountRef.current
@@ -572,7 +614,11 @@ export default function Whiteboard() {
       )
       setBoards(list)
       saveIndex({ boards: list, currentId: boardId })
-      if (accountRef.current) pushBoard(boardId, docRef.current)
+      if (accountRef.current) {
+        pushBoard(boardId, docRef.current).catch((error) =>
+          announceNotice(`Enregistrement en ligne impossible : ${error.message}`),
+        )
+      }
     }, 500)
     return () => clearTimeout(timer)
     // `view` participe volontairement au déclenchement : la vue est persistée aussi.
@@ -623,7 +669,7 @@ export default function Whiteboard() {
     (name) => {
       const list = boards.map((board) => (board.id === boardId ? { ...board, name } : board))
       commitIndex(list, boardId)
-      if (accountRef.current) pushBoard(boardId, docRef.current)
+      if (accountRef.current) pushBoard(boardId, docRef.current).catch(() => {})
     },
     [boards, boardId, commitIndex, pushBoard],
   )
@@ -3767,6 +3813,8 @@ export default function Whiteboard() {
         onSignUp={cloud.signUp}
         onLink={cloud.signInWithLink}
         onSignOut={cloud.signOut}
+        onPushAll={pushAll}
+        onPullAll={pullAll}
       />
 
       {tourStep !== null && (

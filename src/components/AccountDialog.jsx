@@ -5,7 +5,17 @@ import './AccountDialog.css'
  * Compte : connexion par mot de passe ou par lien reçu en courriel, et création de compte.
  * Une fois connecté, les tableaux suivent d'un appareil à l'autre.
  */
-export default function AccountDialog({ open, user, onClose, onSignIn, onSignUp, onLink, onSignOut }) {
+export default function AccountDialog({
+  open,
+  user,
+  onClose,
+  onSignIn,
+  onSignUp,
+  onLink,
+  onSignOut,
+  onPushAll,
+  onPullAll,
+}) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -42,6 +52,46 @@ export default function AccountDialog({ open, user, onClose, onSignIn, onSignUp,
               Connecté en tant que <strong>{user.email}</strong>. Vos tableaux sont enregistrés en
               ligne et vous les retrouvez depuis n'importe quel appareil.
             </p>
+            <p className="account__hint">
+              L'aller-retour est automatique, mais on peut le forcer dans un sens ou dans
+              l'autre — pratique après un long moment hors ligne, ou sur une machine qui
+              découvre le compte.
+            </p>
+
+            <div className="account__stack">
+              <button
+                className="account__btn account__btn--wide"
+                disabled={busy}
+                onClick={() =>
+                  run(onPushAll, (count) =>
+                    count
+                      ? `${count} tableau${count > 1 ? 'x' : ''} envoyé${count > 1 ? 's' : ''} en ligne.`
+                      : 'Aucun tableau à envoyer.',
+                  )
+                }
+              >
+                <span>Envoyer mes tableaux en ligne</span>
+                <small>Ce qui est sur cet ordinateur écrase la base.</small>
+              </button>
+
+              <button
+                className="account__btn account__btn--wide"
+                disabled={busy}
+                onClick={() =>
+                  run(onPullAll, (count) =>
+                    count
+                      ? `${count} tableau${count > 1 ? 'x' : ''} récupéré${count > 1 ? 's' : ''}.`
+                      : 'Aucun tableau en ligne.',
+                  )
+                }
+              >
+                <span>Récupérer les tableaux du compte</span>
+                <small>Ce qui est en ligne écrase les copies locales.</small>
+              </button>
+            </div>
+
+            <hr className="account__sep" />
+
             <div className="account__row">
               <span />
               <button className="account__btn" onClick={() => run(onSignOut)} disabled={busy}>

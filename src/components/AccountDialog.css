@@ -127,3 +127,28 @@
   background: rgba(48, 164, 108, 0.12);
   color: #1f7a4d;
 }
+
+/* Les deux forçages de synchronisation : un libellé, une conséquence en dessous. */
+.account__stack {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 4px;
+}
+
+.account__btn--wide {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+}
+
+.account__btn--wide small {
+  font-size: 11px;
+  color: var(--muted, #8a8a93);
+  font-weight: 400;
+}
+
+.account__btn--wide:disabled small {
+  color: inherit;
+}

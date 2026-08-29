@@ -320,6 +320,14 @@ Une fois connecté :
 - **Copier le lien public** publie le tableau courant et met dans le presse-papier un lien
   `…/#b=<identifiant>` ; qui l'ouvre en récupère une copie dans ses propres tableaux.
 
+La fenêtre du compte offre en plus les deux forçages, quand l'aller-retour automatique ne
+suffit pas (long moment hors ligne, machine qui découvre le compte) :
+
+- **Envoyer mes tableaux en ligne** : chaque tableau d'ici part en base, images comprises —
+  ce qui est sur cet ordinateur écrase la base ;
+- **Récupérer les tableaux du compte** : tous les tableaux du compte sont réécrits en local,
+  le tableau ouvert se rafraîchit à l'écran — ce qui est en ligne écrase les copies locales.
+
 Le tout demande les deux clés publiques du projet, dans un `.env` local (voir
 [.env.example](.env.example)) et, pour la mise en ligne, dans les secrets du dépôt
 (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) — sans elles, le bouton reste éteint et
