@@ -101,6 +101,10 @@ const MAX_SCALE = 5
 const GRID_STEP = 40
 const EMPTY_DOC = { strokes: [], items: [], links: [] }
 
+/** Écart minimal entre deux envois de synchronisation, et durée du glissé à l'arrivée. */
+const SYNC_GAP = 70
+const REMOTE_TWEEN = 150
+
 
 /** Tuile d'un point de grille, régénérée seulement quand le pas ou le rayon change. */
 function gridTileFor(cache, step, radius) {
@@ -347,6 +351,11 @@ export default function Whiteboard() {
   const future = useRef([])
   const [history, setHistory] = useState({ past: 0, future: 0 })
 
+  // Toute écriture locale incrémente ce compteur : la boucle d'envoi sait ainsi, sans
+  // rien parcourir, s'il y a quelque chose à dire aux autres.
+  const revision = useRef(0)
+  const sentRevision = useRef(0)
+
   const write = useCallback((producer, recordHistory) => {
     if (recordHistory) {
       past.current.push(docRef.current)
@@ -354,6 +363,7 @@ export default function Whiteboard() {
     }
     const next = producer(docRef.current)
     docRef.current = next
+    revision.current += 1
     setDoc(next)
     if (recordHistory) setHistory({ past: past.current.length, future: 0 })
   }, [])
@@ -375,6 +385,7 @@ export default function Whiteboard() {
     to.current.push(docRef.current)
     const restored = from.current.pop()
     docRef.current = restored
+    revision.current += 1
     setDoc(restored)
     setEditingId(null)
     setHistory({ past: past.current.length, future: future.current.length })
@@ -401,6 +412,7 @@ export default function Whiteboard() {
       links: saved?.links ?? [],
     }
     docRef.current = restored
+    revision.current += 1
     setDoc(restored)
     past.current = []
     future.current = []
@@ -494,6 +506,7 @@ export default function Whiteboard() {
       // renverrait le même base64 à chaque enregistrement.
       if (boardId === boardIdRef.current) {
         docRef.current = { ...docRef.current, items: light.items }
+        revision.current += 1
         setDoc(docRef.current)
       } else {
         await saveBoard(boardId, light)
@@ -930,10 +943,10 @@ export default function Whiteboard() {
 
           // Un mouvement reçu se joue en douceur, sauf si on est soi-même en train de
           // manipuler un bloc : la transition ferait traîner celui qu'on tient.
-          if (message.items?.length && Date.now() - lastLocalEdit.current > 500) {
+          if (message.items?.length && Date.now() - lastLocalEdit.current > 260) {
             setTween(true)
             clearTimeout(tweenTimer.current)
-            tweenTimer.current = setTimeout(() => setTween(false), 420)
+            tweenTimer.current = setTimeout(() => setTween(false), REMOTE_TWEEN)
           }
           break
         }
@@ -1201,19 +1214,39 @@ export default function Whiteboard() {
   }, [])
 
 
-  // Trois envois par seconde : assez pour suivre, assez peu pour ne jamais s'engorger.
+  /**
+   * Envoi au fil de l'eau. Le battement fixe de trois fois par seconde était une
+   * précaution du temps du pair-à-pair, où un envoi de trop suffisait à engorger la
+   * liaison. Supabase Realtime encaisse sans broncher : on part donc dès qu'il y a
+   * quelque chose à dire, avec un écart minimal entre deux envois — une quinzaine par
+   * seconde quand ça bouge, et pas un message à l'arrêt.
+   */
   useEffect(() => {
     if (!session) return undefined
+    let frame = 0
+    let last = 0
 
-    const timer = setInterval(() => {
+    const tick = () => {
+      frame = requestAnimationFrame(tick)
       // Un invité attend le tableau de l'hôte avant d'émettre le sien (vérifié à chaque
-      // battement : la valeur arrive après la mise en place de la boucle).
+      // image : la valeur arrive après la mise en place de la boucle).
       if (!session.isHost && !gotRemoteDoc.current) return
-      const digest = buildDigest()
-      if (digest) session.send({ t: 'sync', ...digest })
-    }, 320)
 
-    return () => clearInterval(timer)
+      // Rien n'a bougé, sauf peut-être le trait en cours de tracé.
+      if (revision.current === sentRevision.current && !liveStroke.current) return
+      const now = performance.now()
+      if (now - last < SYNC_GAP) return
+
+      const mark = revision.current
+      const digest = buildDigest()
+      sentRevision.current = mark
+      if (!digest) return
+      session.send({ t: 'sync', ...digest })
+      last = now
+    }
+
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
   }, [session, buildDigest])
 
   const importCode = useCallback(

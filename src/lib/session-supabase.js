@@ -27,8 +27,9 @@ function connection() {
   }
   client ??= createClient(URL, KEY, {
     auth: { persistSession: false },
-    // Le curseur part à cadence fixe : inutile de laisser la file grossir.
-    realtime: { params: { eventsPerSecond: 30 } },
+    // Curseur à chaque image et synchronisation au fil de l'eau : la limite du client
+    // doit laisser passer les deux, sinon elle rogne d'abord sur les curseurs.
+    realtime: { params: { eventsPerSecond: 60 } },
   })
   return client
 }

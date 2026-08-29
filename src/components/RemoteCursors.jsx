@@ -22,7 +22,7 @@ const TOOL_ICONS = {
   text: IconPen,
 }
 
-const EASE = 0.32
+const EASE = 0.42
 
 /**
  * Curseurs des autres participants. Les positions reçues alimentent une cible, et une
