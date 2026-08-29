@@ -297,6 +297,41 @@ L'export PNG réunit ce qui vient de trois rendus différents : les traits sont 
 canvas, les fils et branches sont reconstruits depuis leur géométrie, et les blocs (qui sont du
 DOM) passent par un `foreignObject` SVG — avec les canvas remplacés par leur bitmap et les
 champs de saisie réinjectés, sans quoi ils sortiraient vides ([export.js](src/lib/export.js)).
+Les images hébergées en ligne sont rapatriées en `data:` avant la sérialisation, sinon elles
+manqueraient à l'appel.
+
+## Compte et tableaux en ligne
+
+Le rail propose **Se connecter**, qui ouvre une fenêtre d'authentification
+([AccountDialog.jsx](src/components/AccountDialog.jsx)) : adresse et mot de passe, création de
+compte, ou **lien magique** reçu par courriel pour ceux qui n'aiment pas les mots de passe. La
+création demande une **confirmation par courriel** avant la première connexion ; les messages
+d'erreur du serveur sont traduits en français.
+
+Une fois connecté :
+
+- les tableaux du compte **rejoignent le rail** ; ceux d'ici prennent leur place en ligne, sans
+  doublon (chaque entrée de l'index retient son `cloudId`) ;
+- chaque enregistrement local est **répercuté en base** (table `boards`, colonne `doc` en
+  `jsonb`) avec sa vignette, et les images collées **partent dans le Storage** : le document
+  ne transporte plus des mégaoctets de base64 mais des adresses, dédoublonnées par empreinte
+  SHA-256 du contenu ;
+- ouvrir un tableau connu du compte mais absent de la machine **va chercher son contenu** ;
+- **Copier le lien public** publie le tableau courant et met dans le presse-papier un lien
+  `…/#b=<identifiant>` ; qui l'ouvre en récupère une copie dans ses propres tableaux.
+
+Le tout demande les deux clés publiques du projet, dans un `.env` local (voir
+[.env.example](.env.example)) et, pour la mise en ligne, dans les secrets du dépôt
+(`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) — sans elles, le bouton reste éteint et
+l'application fonctionne en local comme avant.
+
+Tout passe par [cloud.js](src/lib/cloud.js), qui charge le client Supabase à la demande. La
+sécurité repose sur le **RLS** de Postgres : on ne lit et n'écrit que ses propres tableaux, à
+l'exception des tableaux marqués publics, lisibles par tout le monde. Le Storage suit la même
+règle (lecture ouverte, écriture et suppression dans son propre dossier).
+
+Hors connexion, rien ne change : les tableaux restent dans IndexedDB et le compte est
+facultatif.
 
 ## Partage et collaboration
 
@@ -431,7 +466,8 @@ un clic ou un glisser dedans déplace la vue ([Minimap.jsx](src/components/Minim
 
 Le document (traits, éléments, connexions, position de la vue) est enregistré automatiquement ~500 ms
 après chaque modification dans **IndexedDB** (`moodboard` › `boards`), un enregistrement par
-tableau plus un index, avec repli sur `localStorage`. L'indicateur en bas à droite affiche l'état. Tout est rechargé au
+tableau plus un index, avec repli sur `localStorage` — et, si un compte est connecté, une
+copie en base (voir plus haut). L'indicateur en bas à droite affiche l'état. Tout est rechargé au
 démarrage ; le bouton 🗑 vide le tableau (annulable avec `⌘Z`).
 
 ## Animations
@@ -482,6 +518,7 @@ src/
     BoardRail.jsx           barre latérale : tableaux, vignettes, export PNG/JSON, import
     Minimap.jsx             vue d'ensemble et navigation
     ShareDialog.jsx         code de partage et session pair-à-pair
+    AccountDialog.jsx       connexion, création de compte, lien magique
     ChatRail.jsx            rail droit : participants repliés, tchat déployé
     QuickChat.jsx           saisie rapide ouverte à la position du curseur
     Pings.jsx               ondes visuelles pour pointer un endroit
@@ -512,6 +549,7 @@ src/
     export.js               export PNG (canvas + foreignObject) et JSON
     share.js                code de partage : compression et encodage
     session.js              session WebRTC : connexions, relais, messages
+    cloud.js                Supabase : compte, tableaux en base, images dans le Storage
     shake.js                détection du secouage de souris
     caret.js                position à l'écran du curseur de saisie
     preview.js              vignette d'un tableau : rectangles normalisés stockés dans l'index

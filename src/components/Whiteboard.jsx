@@ -12,6 +12,8 @@ import Pings from './Pings.jsx'
 import ArcHandles from './ArcHandles.jsx'
 import PathHandles from './PathHandles.jsx'
 import Tour, { STEPS } from './Tour.jsx'
+import AccountDialog from './AccountDialog.jsx'
+import * as cloud from '../lib/cloud.js'
 import Search from './Search.jsx'
 import Laser from './Laser.jsx'
 import Timer from './Timer.jsx'
@@ -171,6 +173,7 @@ export default function Whiteboard() {
   const itemsRef = useRef(null)
   const boardIdRef = useRef(null)
   const boardsRef = useRef([])
+  const accountRef = useRef(null)
   const sessionRef = useRef(null)
   const fromRemote = useRef(false)
   const cursorTargets = useRef(new Map()) // id → position visée, lue par la boucle d'animation
@@ -250,6 +253,8 @@ export default function Whiteboard() {
   const [tween, setTween] = useState(false) // les blocs glissent vers leur nouvelle place
   const [arcSnap, setArcSnap] = useState(null) // accroche visée en déplaçant une extrémité
   const [tourStep, setTourStep] = useState(null) // visite guidée : étape en cours
+  const [account, setAccount] = useState(null) // compte connecté, ou null
+  const [accountOpen, setAccountOpen] = useState(false)
   const [quick, setQuick] = useState(null) // saisie rapide ouverte à la position du curseur
   const [liveStatus, setLiveStatus] = useState('idle')
   const [liveError, setLiveError] = useState(null)
@@ -405,6 +410,133 @@ export default function Whiteboard() {
     if (saved?.view) setView(saved.view)
   }, [])
 
+  const announceNotice = useCallback((text, sticky = false) => {
+    setNotice(text)
+    if (sticky) return
+    setTimeout(() => setNotice((current) => (current === text ? null : current)), 6000)
+  }, [])
+
+  /* ---------- compte et tableaux en ligne ---------- */
+
+  useEffect(() => {
+    if (!cloud.configured()) return undefined
+    let stop = null
+    cloud
+      .currentUser()
+      .then((user) => {
+        accountRef.current = user
+        setAccount(user)
+      })
+      .catch(() => {})
+    cloud.onAuthChange((user) => {
+      accountRef.current = user
+      setAccount(user)
+    }).then((unsubscribe) => {
+      stop = unsubscribe
+    })
+    return () => stop?.()
+  }, [])
+
+  /**
+   * Rapproche la liste locale de celle du compte : les tableaux venus du serveur
+   * apparaissent dans le rail, ceux d'ici obtiennent leur place en ligne.
+   */
+  const syncCloud = useCallback(
+    async (user) => {
+      if (!user) return
+      try {
+        const remote = await cloud.listBoards()
+        const known = new Set(boardsRef.current.map((board) => board.cloudId).filter(Boolean))
+        const arrivals = remote
+          .filter((board) => !known.has(board.id))
+          .map((board) => ({
+            id: board.id,
+            cloudId: board.id,
+            name: board.name,
+            preview: board.preview ?? null,
+          }))
+
+        const list = [...boardsRef.current, ...arrivals]
+        boardsRef.current = list
+        setBoards(list)
+        await saveIndex({ boards: list, currentId: boardIdRef.current })
+      } catch (error) {
+        announceNotice(`Synchronisation impossible : ${error.message}`)
+      }
+    },
+    [announceNotice],
+  )
+
+  useEffect(() => {
+    if (account) syncCloud(account)
+  }, [account, syncCloud])
+
+  /** Envoie le tableau courant en ligne : images d'abord, document ensuite. */
+  const pushBoard = useCallback(async (boardId, doc) => {
+    const user = accountRef.current
+    const entry = boardsRef.current.find((board) => board.id === boardId)
+    if (!user || !entry) return
+
+    // Le tableau garde la même place en ligne d'une session à l'autre.
+    if (!entry.cloudId) {
+      entry.cloudId = cloud.newCloudId()
+      const list = boardsRef.current.map((board) =>
+        board.id === boardId ? { ...board, cloudId: entry.cloudId } : board,
+      )
+      boardsRef.current = list
+      setBoards(list)
+      await saveIndex({ boards: list, currentId: boardIdRef.current })
+    }
+
+    try {
+      const light = await cloud.uploadImages(doc, user.id)
+      if (light !== doc) {
+        // Les images sont devenues des adresses : le document local suit.
+        docRef.current = { ...docRef.current, items: light.items }
+        setDoc(docRef.current)
+      }
+      await cloud.saveBoard({
+        id: entry.cloudId,
+        owner: user.id,
+        name: entry.name,
+        doc: { strokes: light.strokes, items: light.items, links: light.links },
+        preview: makePreview(light),
+      })
+    } catch (error) {
+      announceNotice(`Enregistrement en ligne impossible : ${error.message}`)
+    }
+  }, [announceNotice])
+
+  /** Un tableau connu du serveur mais pas encore ici : on va chercher son contenu. */
+  const pullBoard = useCallback(async (entry) => {
+    if (!entry?.cloudId || !accountRef.current) return null
+    try {
+      const remote = await cloud.fetchBoard(entry.cloudId)
+      return remote?.doc ?? null
+    } catch {
+      return null
+    }
+  }, [])
+
+  const publicLink = useCallback(async () => {
+    const user = accountRef.current
+    const entry = boardsRef.current.find((board) => board.id === boardIdRef.current)
+    if (!user || !entry) {
+      announceNotice('Connectez-vous pour partager un lien.')
+      return
+    }
+    try {
+      await pushBoard(entry.id, docRef.current)
+      const id = boardsRef.current.find((board) => board.id === entry.id)?.cloudId
+      await cloud.publishBoard(id, true)
+      const link = `${window.location.origin}${window.location.pathname}#b=${id}`
+      await navigator.clipboard?.writeText(link)
+      announceNotice('Lien copié : ce tableau est visible par qui l’ouvre.')
+    } catch (error) {
+      announceNotice(`Partage impossible : ${error.message}`)
+    }
+  }, [announceNotice, pushBoard])
+
   useEffect(() => {
     let cancelled = false
     loadIndex()
@@ -440,6 +572,7 @@ export default function Whiteboard() {
       )
       setBoards(list)
       saveIndex({ boards: list, currentId: boardId })
+      if (accountRef.current) pushBoard(boardId, docRef.current)
     }, 500)
     return () => clearTimeout(timer)
     // `view` participe volontairement au déclenchement : la vue est persistée aussi.
@@ -458,13 +591,14 @@ export default function Whiteboard() {
     async (id, list = boards) => {
       if (id === boardIdRef.current) return
       await saveBoard(boardIdRef.current, { ...docRef.current, view: viewRef.current })
-      const saved = await loadBoard(id)
+      const entry = list.find((board) => board.id === id)
+      const saved = (await loadBoard(id)) ?? (await pullBoard(entry))
       boardIdRef.current = id
       setBoardId(id)
       applyDoc(saved)
       await commitIndex(list, id)
     },
-    [applyDoc, boards, commitIndex],
+    [applyDoc, boards, commitIndex, pullBoard],
   )
 
   const createBoard = useCallback(
@@ -489,8 +623,9 @@ export default function Whiteboard() {
     (name) => {
       const list = boards.map((board) => (board.id === boardId ? { ...board, name } : board))
       commitIndex(list, boardId)
+      if (accountRef.current) pushBoard(boardId, docRef.current)
     },
-    [boards, boardId, commitIndex],
+    [boards, boardId, commitIndex, pushBoard],
   )
 
   const duplicateBoard = useCallback(() => {
@@ -501,7 +636,9 @@ export default function Whiteboard() {
   const removeBoard = useCallback(async () => {
     if (boards.length < 2) return
     const list = boards.filter((board) => board.id !== boardId)
+    const cloudId = boards.find((board) => board.id === boardId)?.cloudId
     await deleteBoard(boardId)
+    if (cloudId && accountRef.current) cloud.removeBoard(cloudId).catch(() => {})
     const next = list[0].id
     const saved = await loadBoard(next)
     boardIdRef.current = next
@@ -864,12 +1001,6 @@ export default function Whiteboard() {
     ])
   }, [])
 
-  const announceNotice = useCallback((text, sticky = false) => {
-    setNotice(text)
-    if (sticky) return
-    setTimeout(() => setNotice((current) => (current === text ? null : current)), 6000)
-  }, [])
-
   const connect = useCallback(
     async ({ host, code, silent }) => {
       setLiveError(null)
@@ -994,6 +1125,20 @@ export default function Whiteboard() {
   useEffect(() => {
     localStorage.setItem('moodboard:name', peerName)
   }, [peerName])
+
+  // Un lien partagé ouvre une copie du tableau visé.
+  useEffect(() => {
+    const shared = window.location.hash.match(/#b=([0-9a-f-]{36})/i)?.[1]
+    if (!shared || !cloud.configured()) return
+    window.history.replaceState(null, '', window.location.pathname)
+    cloud
+      .fetchBoard(shared)
+      .then((board) => {
+        if (!board?.doc) throw new Error('Tableau introuvable ou privé')
+        return createBoardRef.current(board.name ?? 'Tableau partagé', board.doc)
+      })
+      .catch((error) => announceNotice(error.message))
+  }, [announceNotice])
 
   // Première venue : on propose la visite, une seule fois.
   useEffect(() => {
@@ -3614,6 +3759,16 @@ export default function Whiteboard() {
         <Laser trails={lasers} view={viewRef} />
       </div>
 
+      <AccountDialog
+        open={accountOpen}
+        user={account}
+        onClose={() => setAccountOpen(false)}
+        onSignIn={cloud.signIn}
+        onSignUp={cloud.signUp}
+        onLink={cloud.signInWithLink}
+        onSignOut={cloud.signOut}
+      />
+
       {tourStep !== null && (
         <Tour
           step={tourStep}
@@ -3688,6 +3843,10 @@ export default function Whiteboard() {
         onImportJson={importJson}
         onShare={() => setShare(true)}
         onTour={() => setTourStep(0)}
+        account={account}
+        cloudReady={cloud.configured()}
+        onAccount={() => setAccountOpen(true)}
+        onPublicLink={publicLink}
         live={Boolean(session)}
         hasSelection={selectedIds.length > 0}
       />

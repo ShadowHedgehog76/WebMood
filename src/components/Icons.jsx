@@ -254,6 +254,13 @@ export const IconExportSelection = (props) => (
   </Icon>
 )
 
+export const IconUser = (props) => (
+  <Icon {...props}>
+    <circle cx="12" cy="8.5" r="3.8" />
+    <path d="M4.8 20a7.2 7.2 0 0 1 14.4 0" />
+  </Icon>
+)
+
 export const IconHelp = (props) => (
   <Icon {...props}>
     <circle cx="12" cy="12" r="8.5" />

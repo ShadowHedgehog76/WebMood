@@ -7,7 +7,9 @@ import {
   IconExportSelection,
   IconImage,
   IconHelp,
+  IconLink,
   IconShare,
+  IconUser,
   IconTrash,
   IconUpload,
 } from './Icons.jsx'
@@ -54,6 +56,10 @@ export default function BoardRail({
   onImportJson,
   onShare,
   onTour,
+  account,
+  cloudReady,
+  onAccount,
+  onPublicLink,
   live,
   hasSelection,
 }) {
@@ -140,6 +146,22 @@ export default function BoardRail({
             <IconTrash size={18} />
           </span>
           <span>Supprimer ce tableau</span>
+        </button>
+
+        <span className="rail__sep" />
+
+        <button className="rail__action" onClick={onAccount} disabled={!cloudReady}>
+          <span className="rail__slot">
+            <IconUser size={18} />
+          </span>
+          <span>{account ? account.email : 'Se connecter'}</span>
+        </button>
+
+        <button className="rail__action" onClick={onPublicLink} disabled={!account || !cloudReady}>
+          <span className="rail__slot">
+            <IconLink size={18} />
+          </span>
+          <span>Copier le lien public</span>
         </button>
 
         <span className="rail__sep" />

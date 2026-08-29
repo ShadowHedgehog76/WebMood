@@ -13,6 +13,33 @@ import { branchPath, branches } from './mindmap.js'
 const XHTML = 'http://www.w3.org/1999/xhtml'
 const PADDING = 48
 
+/**
+ * Les images hébergées en ligne ne sont pas chargées pendant la rasterisation du SVG :
+ * on les rapatrie en `data:` avant de sérialiser.
+ */
+async function inlineRemote(clone) {
+  const remotes = [...clone.querySelectorAll('img')].filter((image) =>
+    /^https?:/i.test(image.getAttribute('src') ?? ''),
+  )
+  await Promise.all(
+    remotes.map(async (image) => {
+      try {
+        const response = await fetch(image.getAttribute('src'), { mode: 'cors' })
+        const blob = await response.blob()
+        const data = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result)
+          reader.onerror = reject
+          reader.readAsDataURL(blob)
+        })
+        image.setAttribute('src', data)
+      } catch {
+        image.remove()
+      }
+    }),
+  )
+}
+
 export function download(blob, filename) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -132,6 +159,8 @@ async function layerToImage(layer, keep, bounds) {
     if (node.tagName === 'TEXTAREA') node.textContent = value
     else node.setAttribute('value', value)
   })
+
+  await inlineRemote(clone)
 
   const holder = document.createElementNS(XHTML, 'div')
   holder.setAttribute('xmlns', XHTML)
