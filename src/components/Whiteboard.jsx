@@ -81,6 +81,7 @@ import {
   snapReach,
 } from '../lib/links.js'
 import { GROUP_TINTS, QUICK_COLORS } from '../lib/palette.js'
+import { lassoHits, lassoPath, thin } from '../lib/lasso.js'
 import {
   deleteBoard,
   loadBoard,
@@ -234,6 +235,8 @@ export default function Whiteboard() {
   // Sélection : plusieurs blocs à la fois, ou un fil.
   const [selection, setSelection] = useState({ items: [], link: null })
   const [band, setBand] = useState(null) // rectangle de sélection en cours
+  const [lasso, setLasso] = useState(null) // tracé de sélection en cours
+  const [selectMode, setSelectMode] = useState('band') // 'band' (rectangle) ou 'lasso'
   const [guides, setGuides] = useState([]) // repères d'aimantation
   const [viewport, setViewport] = useState({ w: 0, h: 0 })
   const [editingId, setEditingId] = useState(null)
@@ -289,6 +292,10 @@ export default function Whiteboard() {
   const pendingRef = useRef(pending)
   const selectionRef = useRef(selection)
   const bandRef = useRef(null)
+  const lassoRef = useRef(null)
+  const selectModeRef = useRef('band')
+  // Pas de la dernière duplication au vol : ⌘D reprend le même écart pour faire une série.
+  const cloneStep = useRef(null)
   docRef.current = doc
   viewRef.current = view
   toolRef.current = tool
@@ -296,6 +303,7 @@ export default function Whiteboard() {
   sizeRef.current = size
   markerRef.current = markerSize
   eraserModeRef.current = eraserMode
+  selectModeRef.current = selectMode
   arrowRef.current = arrow
   linkStyleRef.current = linkStyle
   dashRef.current = dash
@@ -1970,9 +1978,10 @@ export default function Whiteboard() {
 
   /** Copies indépendantes : nouveaux identifiants, liens internes conservés. */
   const cloneItems = useCallback((source, offset = 24) => {
+    const step = typeof offset === 'number' ? { dx: offset, dy: offset } : offset
     const ids = new Map(source.map((item) => [item.id, newId()]))
     return source.map((item) => {
-      const copy = { ...item, id: ids.get(item.id), x: item.x + offset, y: item.y + offset }
+      const copy = { ...item, id: ids.get(item.id), x: item.x + step.dx, y: item.y + step.dy }
       if (item.type === 'group') copy.members = item.members.map((m) => ids.get(m)).filter(Boolean)
       if (item.type === 'node') copy.parent = item.parent ? (ids.get(item.parent) ?? null) : null
       return copy
@@ -1987,8 +1996,8 @@ export default function Whiteboard() {
   }, [])
 
   const pasteItems = useCallback(
-    (source) => {
-      const copies = cloneItems(source)
+    (source, offset = 24) => {
+      const copies = cloneItems(source, offset)
       if (!copies.length) return
       commit((d) => ({ ...d, items: [...d.items, ...copies] }))
       setTool('select')
@@ -1997,10 +2006,31 @@ export default function Whiteboard() {
     [cloneItems, commit],
   )
 
+  /**
+   * Duplique la sélection. Si une copie vient d'être tirée à l'alt, on reprend le même
+   * écart : ⌘D répété égrène alors une série régulière, dans la direction voulue.
+   */
   const duplicateSelection = useCallback(() => {
     const chosen = docRef.current.items.filter((item) => selectionRef.current.items.includes(item.id))
-    if (chosen.length) pasteItems(chosen)
+    if (chosen.length) pasteItems(chosen, cloneStep.current ?? 24)
   }, [pasteItems])
+
+  /**
+   * Alt + glisser : la copie reste sur place et c'est l'original qu'on emmène. Le résultat
+   * est celui qu'on attend, sans avoir à transférer le geste en cours à un autre bloc.
+   */
+  const cloneInPlace = useCallback(
+    (id) => {
+      const chosen = selectionRef.current.items.includes(id)
+        ? docRef.current.items.filter((item) => selectionRef.current.items.includes(item.id))
+        : docRef.current.items.filter((item) => item.id === id)
+      const copies = cloneItems(chosen, { dx: 0, dy: 0 })
+      if (!copies.length) return
+      // Sans entrée d'historique : le déplacement qui suit en écrira une pour les deux.
+      write((d) => ({ ...d, items: [...d.items, ...copies] }), true)
+    },
+    [cloneItems, write],
+  )
 
   const reorder = useCallback(
     (toFront) => {
@@ -2126,8 +2156,9 @@ export default function Whiteboard() {
   /* ---------- groupes ---------- */
 
   const onItemDragEnd = useCallback(
-    (id) => {
+    (id, _point, step) => {
       setGuides([])
+      if (step && (step.dx || step.dy)) cloneStep.current = step
       write((d) => {
         const moved = d.items.find((item) => item.id === id)
         if (!moved || moved.type === 'group') return d
@@ -2424,6 +2455,8 @@ export default function Whiteboard() {
       painters.current.paintStrokes()
     }
     bandRef.current = null
+    lassoRef.current = null
+    setLasso(null)
     setBand(null)
     draftRef.current = null
     setDraft(null)
@@ -2537,11 +2570,16 @@ export default function Whiteboard() {
       // Le pointeur peut déjà être relâché (stylet qui quitte la surface) : sans gravité.
     }
 
-    // Glisser sur le vide en mode sélection : rectangle de sélection.
+    // Glisser sur le vide en mode sélection : rectangle, ou lasso si c'est le mode choisi.
     if (current === 'select' && !isPan && event.button === 0) {
       const at = toWorld(event.clientX, event.clientY)
-      bandRef.current = { from: at, to: at, additive: event.shiftKey }
-      setBand({ ...bandRef.current })
+      if (selectModeRef.current === 'lasso') {
+        lassoRef.current = { points: [at], additive: event.shiftKey }
+        setLasso([at])
+      } else {
+        bandRef.current = { from: at, to: at, additive: event.shiftKey }
+        setBand({ ...bandRef.current })
+      }
       return
     }
 
@@ -2653,6 +2691,8 @@ export default function Whiteboard() {
       eraseStrokes(toWorld(event.clientX, event.clientY))
     } else if (bandRef.current) {
       move.band = toWorld(event.clientX, event.clientY)
+    } else if (lassoRef.current) {
+      move.lasso = toWorld(event.clientX, event.clientY)
     } else if (draftRef.current) {
       move.draft = toWorld(event.clientX, event.clientY)
       move.shift = event.shiftKey
@@ -2703,6 +2743,17 @@ export default function Whiteboard() {
         if (touches.current.size === 0) ignored.current.clear()
         return
       }
+    }
+
+    const drawn = lassoRef.current
+    if (drawn) {
+      lassoRef.current = null
+      setLasso(null)
+      const polygon = thin(drawn.points)
+      const hits = lassoHits(docRef.current.items, polygon)
+      // Un lasso refermé sur rien vide la sélection, comme un clic dans le vide.
+      if (hits.length || !drawn.additive) selectItems(hits, drawn.additive)
+      return
     }
 
     const selecting = bandRef.current
@@ -2836,6 +2887,15 @@ export default function Whiteboard() {
     if (move.band && bandRef.current) {
       bandRef.current = { ...bandRef.current, to: move.band }
       setBand({ ...bandRef.current })
+    }
+    if (move.lasso && lassoRef.current) {
+      // Un point tous les six pixels : le tracé reste fidèle sans gonfler pour rien.
+      const points = lassoRef.current.points
+      const last = points[points.length - 1]
+      if (Math.hypot(move.lasso.x - last.x, move.lasso.y - last.y) >= 6) {
+        points.push(move.lasso)
+        setLasso([...points])
+      }
     }
     if (move.draft && draftRef.current) {
       const current = draftRef.current
@@ -3741,6 +3801,7 @@ export default function Whiteboard() {
               onDelete={deleteItem}
               onExport={exportSketch}
               onDragEnd={onItemDragEnd}
+              onCloneInPlace={cloneInPlace}
               onSnap={snap}
               onMenu={openItemMenu}
               onToggleDone={toggleDone}
@@ -3808,6 +3869,12 @@ export default function Whiteboard() {
                 />
               )
             })()}
+
+          {lasso && lasso.length > 1 && (
+            <svg className="lasso" aria-hidden>
+              <path d={lassoPath(lasso)} vectorEffect="non-scaling-stroke" />
+            </svg>
+          )}
 
           {draft?.free && draft.points.length > 1 &&
             (() => {
@@ -3969,6 +4036,7 @@ export default function Whiteboard() {
         size={size}
         markerSize={markerSize}
         eraserMode={eraserMode}
+        selectMode={selectMode}
         arrow={arrow}
         linkStyle={selectedLink?.style ?? linkStyle}
         dash={selectedLink?.dash ?? selectedShape?.dash ?? dash}
@@ -4007,6 +4075,7 @@ export default function Whiteboard() {
           pickSize,
           pickMarkerSize: setMarkerSize,
           setEraserMode,
+          setSelectMode,
           pickTextSize,
           pickArrow,
           pickLinkStyle,

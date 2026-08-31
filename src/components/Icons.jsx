@@ -254,6 +254,14 @@ export const IconExportSelection = (props) => (
   </Icon>
 )
 
+export const IconLasso = (props) => (
+  <Icon {...props}>
+    <path d="M12 4.2c4.4 0 8 2.2 8 5s-3.6 5-8 5-8-2.2-8-5 3.6-5 8-5Z" strokeDasharray="3 2.6" />
+    <path d="M8.4 13.8c-.5 1.5-.2 2.6.6 3.3" />
+    <circle cx="9.6" cy="18.4" r="1.7" />
+  </Icon>
+)
+
 export const IconUser = (props) => (
   <Icon {...props}>
     <circle cx="12" cy="8.5" r="3.8" />

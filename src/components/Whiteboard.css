@@ -748,3 +748,21 @@
     padding: 6px;
   }
 }
+
+/* Le tracé du lasso, par-dessus les blocs mais sans les intercepter. */
+.lasso {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.lasso path {
+  fill: rgba(59, 130, 246, 0.08);
+  stroke: #3b82f6;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  stroke-linejoin: round;
+}

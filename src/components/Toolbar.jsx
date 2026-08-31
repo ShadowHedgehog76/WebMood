@@ -29,6 +29,7 @@ import {
   IconHand,
   IconImage,
   IconLaser,
+  IconLasso,
   IconLine,
   IconMagnet,
   IconMap,
@@ -96,6 +97,7 @@ export default function Toolbar({
   size,
   markerSize,
   eraserMode,
+  selectMode,
   arrow,
   linkStyle,
   dash,
@@ -484,6 +486,28 @@ export default function Toolbar({
           {colorButton}
           {separator}
           {sizes([10, 20, 32, 48], markerSize, actions.pickMarkerSize, 'Surligneur', [6, 90])}
+        </>
+      )
+    }
+
+    // Rien de sélectionné, outil sélection : on choisit la façon d'attraper.
+    if (tool === 'select' && !selectedCount) {
+      return (
+        <>
+          <button
+            className={`chip chip--icon ${selectMode === 'band' ? 'is-active' : ''}`}
+            onClick={() => actions.setSelectMode('band')}
+            {...tipProps('Sélection au rectangle')}
+          >
+            <IconCursor size={17} />
+          </button>
+          <button
+            className={`chip chip--icon ${selectMode === 'lasso' ? 'is-active' : ''}`}
+            onClick={() => actions.setSelectMode('lasso')}
+            {...tipProps('Sélection au lasso : entourez ce que vous voulez prendre')}
+          >
+            <IconLasso size={17} />
+          </button>
         </>
       )
     }

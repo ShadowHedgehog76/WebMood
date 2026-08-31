@@ -46,6 +46,7 @@ function BoardItem({
   onDelete,
   onExport,
   onDragEnd,
+  onCloneInPlace,
   onSnap,
   onMenu,
   progress,
@@ -68,8 +69,10 @@ function BoardItem({
   )
 
   const startDrag = (event, mode) => {
-    // Alt + clic sert à pointer : on laisse l'événement filer jusqu'au tableau.
-    if (event.altKey) return
+    // Alt + glisser sur un bloc : on laisse une copie derrière soi. Ailleurs, alt + clic
+    // sert toujours à pointer un endroit pour les autres.
+    const cloning = event.altKey && mode === 'move' && draggable && !editing
+    if (event.altKey && !cloning) return
 
     // Clic droit sur un bloc : on garde l'événement pour son menu, pas pour naviguer.
     if (event.button === 2) {
@@ -96,6 +99,12 @@ function BoardItem({
       startW: item.w,
       startH: item.h,
       startPoint: point,
+      originX: item.x,
+      originY: item.y,
+      // La copie n'est posée qu'au premier vrai mouvement : un alt + clic sec ne doit
+      // pas laisser un doublon sur place.
+      pendingClone: cloning,
+      cloned: false,
       first: true,
     }
   }
@@ -107,6 +116,14 @@ function BoardItem({
     state.point = point
 
     if (state.mode === 'move') {
+      if (state.pendingClone) {
+        const travelled = Math.hypot(point.x - state.startPoint.x, point.y - state.startPoint.y)
+        if (travelled > 3) {
+          state.pendingClone = false
+          state.cloned = true
+          onCloneInPlace?.(item.id)
+        }
+      }
       const free = {
         x: Math.round(point.x + state.offsetX),
         y: Math.round(point.y + state.offsetY),
@@ -127,7 +144,10 @@ function BoardItem({
   const endDrag = () => {
     const state = drag.current
     drag.current = null
-    if (state?.mode === 'move') onDragEnd?.(item.id, state.point)
+    if (state?.mode !== 'move') return
+    // L'écart de cette duplication devient le pas d'une éventuelle série.
+    const step = state.cloned ? { dx: item.x - state.originX, dy: item.y - state.originY } : null
+    onDragEnd?.(item.id, state.point, step)
   }
 
   return (

@@ -103,13 +103,26 @@ Tout se pilote au doigt comme à la souris :
 
 ## Sélection multiple
 
-En mode sélection, **glisser sur le vide trace un lasso** ; `⇧`-clic ajoute ou retire un bloc,
-`⌘A` prend tout. Une sélection multiple se déplace, se supprime et s'aligne d'un bloc : six
-boutons d'alignement (gauche, centre, droite, haut, milieu, bas) apparaissent dans la barre
-dès que deux blocs sont pris. Le panoramique reste sur `espace`, clic milieu/droit ou trackpad.
+En mode sélection, **glisser sur le vide attrape** ce qui est dedans ; `⇧`-clic ajoute ou
+retire un bloc, `⌘A` prend tout. Une sélection multiple se déplace, se supprime et s'aligne
+d'un bloc : six boutons d'alignement (gauche, centre, droite, haut, milieu, bas) apparaissent
+dans la barre dès que deux blocs sont pris. Le panoramique reste sur `espace`, clic
+milieu/droit ou trackpad.
+
+Deux façons d'attraper, au choix dans la barre de réglages :
+
+- le **rectangle**, qui prend tout ce qui croise sa boîte ;
+- le **lasso**, qui suit le tracé et ne retient qu'un bloc dont le **centre** tombe dedans
+  ([lasso.js](src/lib/lasso.js)) — sur un tableau dense, c'est la seule façon de prendre trois
+  blocs au milieu de vingt autres. Le tracé est allégé à un point tous les six pixels avant le
+  test d'appartenance, qui est un lancer de rayon classique.
 
 - `⌘C` / `⌘V` copient et collent les blocs (le presse-papiers système transporte le JSON, donc
   ça marche aussi d'un tableau à l'autre), `⌘D` duplique sur place.
+- **`⌥` + glisser un bloc laisse une copie derrière soi.** La copie n'est posée qu'au premier
+  vrai mouvement : un `⌥`-clic sec ne laisse pas de doublon, et continue de pointer un endroit
+  pour les autres. L'écart de ce glisser devient le **pas d'une série** : `⌘D` ensuite répète
+  la copie dans la même direction et au même intervalle, autant de fois qu'on appuie.
 - `⌘]` / `⌘[` passent au premier plan ou à l'arrière-plan.
 - **Clic droit** sur un bloc ouvre son menu : dupliquer, plans, supprimer — plus les entrées
   propres aux nœuds de carte mentale.
