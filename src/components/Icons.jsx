@@ -270,6 +270,40 @@ export const IconSwatch = (props) => (
   </Icon>
 )
 
+const CHART_GLYPHS = {
+  column: (
+    <>
+      <path d="M5 19V11" />
+      <path d="M12 19V5.5" />
+      <path d="M19 19v-5" />
+    </>
+  ),
+  bar: (
+    <>
+      <path d="M5 6h9" />
+      <path d="M5 12h13.5" />
+      <path d="M5 18h6" />
+    </>
+  ),
+  line: <path d="m4 16 4.6-5.4 3.8 3L20 7" />,
+  area: (
+    <>
+      <path d="m4 16 4.6-5.4 3.8 3L20 7" />
+      <path d="M4 16v3h16V7" opacity="0.45" />
+    </>
+  ),
+  pie: (
+    <>
+      <circle cx="12" cy="12" r="7.6" />
+      <path d="M12 4.4V12h7.6" />
+    </>
+  ),
+}
+
+export const IconChart = ({ kind = 'column', ...props }) => (
+  <Icon {...props}>{CHART_GLYPHS[kind] ?? CHART_GLYPHS.column}</Icon>
+)
+
 export const IconCrop = (props) => (
   <Icon {...props}>
     <path d="M6.5 2.6v14.9h14.9" />

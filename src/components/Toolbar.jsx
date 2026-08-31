@@ -5,6 +5,7 @@ import { ARROW_STYLES, LINK_STYLES } from '../lib/links.js'
 import { COLOR_ROWS, NEUTRAL_ROW, QUICK_COLORS } from '../lib/palette.js'
 import { CLOSED, SHAPES } from '../lib/shapes.js'
 import { MASKS, isCropped } from '../lib/images.js'
+import { CHARTS } from '../lib/chart.js'
 import { DASHABLE, LINE_DASHES } from '../lib/dashes.js'
 import { BRUSHES, DASHABLE_BRUSHES } from '../lib/brushes.js'
 import { MINDMAP_LAYOUTS } from '../lib/mindmap.js'
@@ -32,6 +33,7 @@ import {
   IconLaser,
   IconLasso,
   IconLibrary,
+  IconChart,
   IconCrop,
   IconSwatch,
   IconMask,
@@ -124,6 +126,7 @@ export default function Toolbar({
   selectedMarkdown,
   selectedShape,
   selectedImage,
+  selectedChart,
   canFill,
   selectedGroup,
   selectedText,
@@ -419,6 +422,31 @@ export default function Toolbar({
           >
             <IconRowPlus size={17} column minus />
           </button>
+          {separator}
+          <button
+            className="chip chip--icon"
+            onClick={() => actions.addChart('column')}
+            {...tipProps('Faire un graphique de ce tableau')}
+          >
+            <IconChart size={17} kind="column" />
+          </button>
+        </>
+      )
+    }
+
+    if (selectedChart) {
+      return (
+        <>
+          {CHARTS.map((option) => (
+            <button
+              key={option.key}
+              className={`chip chip--icon ${selectedChart.chart === option.key ? 'is-active' : ''}`}
+              onClick={() => actions.setChartKind(option.key)}
+              {...tipProps(option.label)}
+            >
+              <IconChart size={17} kind={option.key} />
+            </button>
+          ))}
         </>
       )
     }
@@ -781,6 +809,13 @@ export default function Toolbar({
         </button>
         <button className="tool" onClick={actions.addTable} {...tipProps('Tableau')}>
           <IconTable />
+        </button>
+        <button
+          className="tool"
+          onClick={() => actions.addChart('column')}
+          {...tipProps('Graphique : lit un tableau du tableau blanc')}
+        >
+          <IconChart />
         </button>
         <button className="tool" onClick={actions.addMarkdown} {...tipProps('Bloc markdown')}>
           <IconMarkdown />

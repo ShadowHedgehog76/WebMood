@@ -1,0 +1,113 @@
+/* Graphique : le fond porte la surface, le texte porte l'encre — jamais la couleur
+   d'une série, qui serait illisible en petit. */
+.chart {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(10px * var(--inv));
+  background: #fff;
+  box-shadow: 0 calc(4px * var(--inv)) calc(16px * var(--inv)) rgba(15, 15, 20, 0.14);
+  overflow: hidden;
+}
+
+.chart svg {
+  display: block;
+}
+
+.chart__title {
+  position: absolute;
+  left: calc(12px * var(--inv));
+  top: calc(8px * var(--inv));
+  font-size: calc(12px * var(--inv));
+  font-weight: 600;
+  color: #1c1c1e;
+}
+
+.chart__tick,
+.chart__label {
+  font-size: calc(9.5px * var(--inv));
+  font-family: inherit;
+  fill: #8a8a93;
+}
+
+.chart__tick {
+  font-variant-numeric: tabular-nums;
+}
+
+.chart__label {
+  fill: #52514e;
+}
+
+/* La légende est toujours là dès deux séries : l'identité ne tient jamais à la
+   couleur seule. */
+.chart__legend {
+  position: absolute;
+  left: calc(12px * var(--inv));
+  bottom: calc(6px * var(--inv));
+  right: calc(12px * var(--inv));
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(4px * var(--inv)) calc(10px * var(--inv));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: calc(10px * var(--inv));
+  color: #52514e;
+}
+
+.chart__legend li {
+  display: flex;
+  align-items: center;
+  gap: calc(4px * var(--inv));
+  white-space: nowrap;
+}
+
+.chart__legend b {
+  font-variant-numeric: tabular-nums;
+  color: #1c1c1e;
+}
+
+.chart__legend--pie {
+  justify-content: center;
+}
+
+.chart__key {
+  width: calc(8px * var(--inv));
+  height: calc(8px * var(--inv));
+  border-radius: calc(2px * var(--inv));
+  flex: 0 0 auto;
+}
+
+.chart__tip {
+  position: absolute;
+  transform: translate(calc(-50% * var(--inv)), calc(-125% * var(--inv)));
+  display: grid;
+  gap: calc(1px * var(--inv));
+  padding: calc(5px * var(--inv)) calc(9px * var(--inv));
+  border-radius: calc(8px * var(--inv));
+  background: rgba(20, 20, 24, 0.92);
+  color: #fff;
+  font-size: calc(10.5px * var(--inv));
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.chart__tip strong {
+  font-weight: 600;
+}
+
+.chart__tip span {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.chart--empty {
+  display: grid;
+  place-items: center;
+  padding: calc(14px * var(--inv));
+  text-align: center;
+  font-size: calc(11px * var(--inv));
+  line-height: 1.5;
+  color: #8a8a93;
+}

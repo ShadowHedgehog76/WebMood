@@ -234,6 +234,49 @@ export function tableItem({ at = { x: 0, y: 0 }, columns = 3, rows = 3, color = 
   }
 }
 
+const CHART_SIZE = { w: 420, h: 280 }
+
+/** Graphique lié à un tableau du board : il n'a pas de données à lui. */
+export function chartItem({ source, at = { x: 0, y: 0 }, chart = 'column', title = '' } = {}) {
+  return {
+    id: newId(),
+    type: 'chart',
+    chart,
+    source,
+    title,
+    x: Math.round(at.x - CHART_SIZE.w / 2),
+    y: Math.round(at.y - CHART_SIZE.h / 2),
+    ...CHART_SIZE,
+  }
+}
+
+/**
+ * Un CSV devient un tableau — modifiable, et prêt à porter un graphique. Le séparateur
+ * est deviné : le point-virgule est la norme des tableurs français.
+ */
+export function csvTable(text, at) {
+  const lines = text.split(/\r?\n/).filter((line) => line.trim())
+  const separator = (lines[0].match(/;/g)?.length ?? 0) > (lines[0].match(/,/g)?.length ?? 0) ? ';' : ','
+  const cells = lines
+    .slice(0, 200)
+    .map((line) => line.split(separator).map((cell) => cell.trim().replace(/^"|"$/g, '')))
+
+  const columns = Math.max(...cells.map((row) => row.length))
+  const w = Math.max(TABLE_SIZE.w, Math.min(900, columns * 120))
+  const h = Math.max(TABLE_SIZE.h, Math.min(600, cells.length * 30 + 12))
+
+  return {
+    id: newId(),
+    type: 'table',
+    color: '#3b82f6',
+    cells: cells.map((row) => [...row, ...Array(columns - row.length).fill('')]),
+    x: Math.round(at.x - w / 2),
+    y: Math.round(at.y - h / 2),
+    w,
+    h,
+  }
+}
+
 /** Nœud de carte mentale. Sans parent, c'est le nœud principal. */
 export function nodeItem({
   at = { x: 0, y: 0 },
@@ -309,6 +352,8 @@ export async function itemsFromFiles(files, at) {
         items.push(await imageItem(file, offset))
       } else if (mediaKind(file)) {
         items.push(await mediaItem(file, offset))
+      } else if (/\.csv$/i.test(file.name ?? '')) {
+        items.push(csvTable(await readAsText(file), offset))
       } else if (isTextFile(file)) {
         items.push(codeItem(await readAsText(file), { name: file.name, at: offset }))
       } else {

@@ -43,6 +43,7 @@ import { loadSettings, saveSettings } from '../lib/settings.js'
 import { IconMinus, IconPlus } from './Icons.jsx'
 import Links from './Links.jsx'
 import {
+  chartItem,
   codeItem,
   groupItem,
   imageItemFromShot,
@@ -2131,6 +2132,66 @@ export default function Whiteboard() {
     [commit],
   )
 
+  /* ---------- graphiques ---------- */
+
+  /**
+   * Un graphique ne porte pas ses données : il lit un tableau du board. Modifier le
+   * tableau met le graphique à jour, et le tableau reste la vue chiffrée — ce que la
+   * lisibilité exige de toute façon, plusieurs teintes de la palette passant sous le
+   * seuil de contraste.
+   */
+  const addChart = useCallback(
+    (chart = 'column') => {
+      const selected = docRef.current.items.find(
+        (item) => item.id === selectionRef.current.items[0] && item.type === 'table',
+      )
+      const center = viewportCenter()
+
+      if (selected) {
+        const block = chartItem({
+          source: selected.id,
+          chart,
+          at: { x: selected.x + selected.w / 2, y: selected.y + selected.h + 170 },
+          title: selected.cells?.[0]?.[0] ?? '',
+        })
+        commit((d) => ({ ...d, items: [...d.items, block] }))
+        setSelection({ items: [block.id], link: null })
+        return
+      }
+
+      // Sans tableau sous la main, on pose la paire : les chiffres restent modifiables.
+      const table = tableItem({ at: { x: center.x, y: center.y - 190 } })
+      table.cells = [
+        ['Mois', 'Ventes', 'Retours'],
+        ['Janvier', '120', '18'],
+        ['Février', '186', '24'],
+        ['Mars', '154', '12'],
+        ['Avril', '211', '31'],
+      ]
+      const block = chartItem({
+        source: table.id,
+        chart,
+        at: { x: center.x, y: center.y + 150 },
+        title: 'Mois',
+      })
+      commit((d) => ({ ...d, items: [...d.items, table, block] }))
+      setSelection({ items: [block.id], link: null })
+    },
+    [commit, viewportCenter],
+  )
+
+  const setChartKind = useCallback(
+    (chart) => {
+      const id = selectionRef.current.items[0]
+      if (!id) return
+      commit((d) => ({
+        ...d,
+        items: d.items.map((item) => (item.id === id ? { ...item, chart } : item)),
+      }))
+    },
+    [commit],
+  )
+
   /* ---------- bibliothèque de modèles ---------- */
 
   useEffect(() => {
@@ -3710,6 +3771,11 @@ export default function Whiteboard() {
     [doc.items, selectedItemId],
   )
 
+  const selectedChart = useMemo(
+    () => doc.items.find((item) => item.id === selectedItemId && item.type === 'chart') ?? null,
+    [doc.items, selectedItemId],
+  )
+
   const selectedImage = useMemo(
     () => doc.items.find((item) => item.id === selectedItemId && item.type === 'image') ?? null,
     [doc.items, selectedItemId],
@@ -3951,6 +4017,11 @@ export default function Whiteboard() {
               onExport={exportSketch}
               onDragEnd={onItemDragEnd}
               onCloneInPlace={cloneInPlace}
+              source={
+                item.type === 'chart'
+                  ? doc.items.find((candidate) => candidate.id === item.source)
+                  : undefined
+              }
               cropping={cropping === item.id}
               onCrop={cropImage}
               onPickColor={setColor}
@@ -4222,6 +4293,7 @@ export default function Whiteboard() {
         selectedMarkdown={selectedItem?.type === 'markdown' ? selectedItem : null}
         selectedShape={selectedShape}
         selectedImage={selectedImage}
+        selectedChart={selectedChart}
         canFill={selectedShape ? isClosed(selectedShape) : null}
         selectedGroup={selectedGroup}
         selectedText={selectedText}
@@ -4244,6 +4316,8 @@ export default function Whiteboard() {
           startCrop: (id) => cropImage(id, 'start'),
           setMask,
           extractPalette,
+          addChart,
+          setChartKind,
           saveStencil,
           pickTextSize,
           pickArrow,

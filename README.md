@@ -280,6 +280,47 @@ Le code des blocs est exécuté tel quel dans la page, y compris au rechargement
 c'est un outil local et personnel, pas un bac à sable — n'y collez que du code que vous
 acceptez d'exécuter.
 
+## Graphiques
+
+Le bouton **graphique** de la barre pose une paire : un **tableau** et le graphique qui le
+lit. Avec un tableau déjà sélectionné, le bouton de la barre de réglages en fait un
+graphique directement. Un fichier **CSV déposé devient un tableau** (le séparateur est
+deviné, point-virgule ou virgule), donc prêt à porter un graphique.
+
+Le graphique **ne détient pas ses données** : il pointe un tableau du board. Modifier une
+cellule met la courbe à jour — c'est le même document, il n'y a rien à resynchroniser, et
+les chiffres restent lisibles à côté. Première ligne : les noms de séries. Première
+colonne : les étiquettes. Cinq formes : colonnes, barres, courbes, aire, camembert.
+
+Le rendu est du **SVG écrit à la main**, sans bibliothèque ([chart.js](src/lib/chart.js),
+[ChartBlock.jsx](src/components/ChartBlock.jsx)) : rien à charger, et le graphique sort
+intact dans l'export PNG, qui sérialise le DOM.
+
+Les partis pris de lisibilité valent d'être dits, parce qu'ils ne sont pas décoratifs :
+
+- **une palette catégorielle fixe de six teintes, dans cet ordre.** L'ordre *est* le
+  mécanisme de sécurité pour les daltonismes, pas une préférence : il a été passé au
+  validateur (bande de clarté, plancher de chroma, séparation ΔE 9.1 sur la pire paire
+  voisine en protanopie, plancher vision normale 19.6). Au-delà de six séries, la queue est
+  repliée dans « Autre » — jamais une septième teinte, qui serait indiscernable ;
+- **une légende dès deux séries**, toujours, plus le tableau juste à côté : l'identité ne
+  tient jamais à la couleur seule, ce qui compte d'autant plus que trois teintes de la
+  palette passent sous 3:1 face au fond blanc ;
+- **le texte ne porte jamais la couleur d'une série** — graduations, étiquettes et légende
+  sont en encre ; c'est la pastille à côté qui porte l'identité ;
+- **des marques fines** : barres plafonnées à 24 px avec un bout arrondi côté donnée et
+  l'angle droit sur la ligne de base (la barre doit visiblement partir de zéro), traits de
+  2 px, aires en lavis à 10 %, grille en filet plein d'un cran au-dessus du fond — jamais
+  pointillée ;
+- **c'est du blanc qui sépare**, pas un contour : 2 px de fond entre deux parts de
+  camembert, 2 px d'anneau autour des points d'une courbe ;
+- **des graduations rondes** (0, 500, 1 000…) et une infobulle au survol, parce qu'une
+  valeur écrite sur chaque point ne se lit pas.
+
+Le graphique s'affiche en clair uniquement : le tableau blanc l'est aussi, et une palette
+sombre posée dessus jurerait. Les couleurs sont regroupées en haut de
+[chart.js](src/lib/chart.js) si l'envie d'un thème sombre vient un jour.
+
 ## Cartes mentales
 
 Le bouton **carte mentale** pose un arbre bilatéral ; les quatre dispositions se choisissent
@@ -633,6 +674,7 @@ src/
     BoardItem.css
     ImageCrop.jsx           recadrage d'une image : volets d'ombre, poignées, validation
     Library.jsx             bibliothèque de modèles : parcourir, renommer, reposer
+    ChartBlock.jsx          graphique SVG lu depuis un tableau du board
     MediaBlock.jsx          vidéo, son et PDF lus sur place
     EmbedBlock.jsx          cadre intégré ou carte de lien
     Thumb.jsx               vignette partagée (rail des tableaux, bibliothèque)
@@ -650,6 +692,7 @@ src/
     storage.js              IndexedDB + repli localStorage
     files.js                fichiers → éléments (image, vidéo, son, PDF, blocs de code)
     embed.js                liens : intégration chez les services connus, carte ailleurs
+    chart.js                graphiques : lecture d'un tableau, échelles, géométrie SVG
     highlight.js            coloration syntaxique minimale + détection de langage
     sketch.js               exécution des blocs visuels (2D / SVG / three.js) + capture
     links.js                géométrie des fils : ancrage, courbe, pointes de flèche
