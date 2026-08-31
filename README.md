@@ -190,6 +190,31 @@ droite pour redimensionner, **double-clic** sur un bloc de code pour l'éditer, 
 bouton ✕ pour supprimer. Les traits se dessinent toujours **au-dessus** des éléments, ce qui
 permet d'annoter une image.
 
+### Recadrer, masquer, prélever
+
+**Double-clic sur une image** (ou le bouton de la barre de réglages) ouvre le recadrage. Le
+temps du réglage, l'image est montrée **entière et assombrie hors de la fenêtre retenue** : on
+voit ce qu'on récupère, pas seulement ce qu'on garde. Huit poignées, un repère aux tiers, et
+la fenêtre se déplace d'un glisser. `Échap` referme sans rien appliquer.
+
+Le recadrage est une **fenêtre normalisée** (0 → 1) sur la source, jamais une découpe des
+pixels ([images.js](src/lib/images.js)) : il ne coûte rien à enregistrer, ne dégrade rien, et
+reste réversible — le bouton **Tout** rend l'image entière. À la validation, la hauteur du
+bloc suit le rapport de la part retenue, sinon l'image s'étirerait pour remplir l'ancienne
+boîte ; le rapport de la source est retenu à part, pour que deux recadrages successifs ne
+composent pas leurs déformations.
+
+Sept **masques** (aucun, ellipse, coins arrondis, losange, triangle, hexagone, arche) découpent
+la silhouette du bloc. Ce sont des `clip-path` en pourcentages : ils suivent le bloc quand on
+le redimensionne.
+
+Enfin, **extraire les couleurs dominantes** pose sous l'image un **nuancier** de quelques
+teintes, cliquables — un clic prend la couleur pour l'outil courant, et le code hexadécimal
+est écrit sur chaque bande. L'image est réduite à une vignette, ses pixels rangés dans une
+grille de 6³ cases, et on garde les cases les plus peuplées en écartant celles qui se
+ressemblent trop, à teinte franche préférée sur le gris ([swatch.js](src/lib/swatch.js)). Une
+image qui n'a que trois teintes rend trois teintes, pas cinq dont deux doublons.
+
 ## Blocs visuels (code exécuté)
 
 Le bouton **étincelles** crée un bloc coupé en deux : **le code à gauche, le rendu à droite**,
@@ -569,6 +594,8 @@ src/
     Icons.jsx               jeu d'icônes SVG inline (aucune dépendance)
     BoardItem.jsx           élément image / code / visuel / groupe : déplacer, redimensionner
     BoardItem.css
+    ImageCrop.jsx           recadrage d'une image : volets d'ombre, poignées, validation
+    PaletteBlock.jsx        nuancier tiré d'une image, cliquable
     GroupBlock.jsx          zone de groupe : bande de couleur + zone colorée
     MindNode.jsx            nœud de carte mentale : case à cocher, jauge, édition
     ShapeBlock.jsx          rendu SVG des formes (rect, ellipse, triangle, losange, ligne, flèche)
@@ -597,6 +624,9 @@ src/
     caret.js                position à l'écran du curseur de saisie
     preview.js              vignette d'un tableau : rectangles normalisés stockés dans l'index
     palette.js              palette générée (16 teintes × 5 valeurs + gris)
+    images.js               recadrage normalisé et masques d'image
+    swatch.js               teintes dominantes d'une image
+    lasso.js                appartenance à un tracé de sélection
 ```
 
 Le document est `{ strokes, items, links }` — un `item` est une image, un bloc de code, un

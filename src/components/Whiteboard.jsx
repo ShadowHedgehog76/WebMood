@@ -82,6 +82,8 @@ import {
 } from '../lib/links.js'
 import { GROUP_TINTS, QUICK_COLORS } from '../lib/palette.js'
 import { lassoHits, lassoPath, thin } from '../lib/lasso.js'
+import { croppedRatio, cropOf, isCropped } from '../lib/images.js'
+import { paletteOf } from '../lib/swatch.js'
 import {
   deleteBoard,
   loadBoard,
@@ -236,6 +238,7 @@ export default function Whiteboard() {
   const [selection, setSelection] = useState({ items: [], link: null })
   const [band, setBand] = useState(null) // rectangle de sélection en cours
   const [lasso, setLasso] = useState(null) // tracé de sélection en cours
+  const [cropping, setCropping] = useState(null) // image en cours de recadrage
   const [selectMode, setSelectMode] = useState('band') // 'band' (rectangle) ou 'lasso'
   const [guides, setGuides] = useState([]) // repères d'aimantation
   const [viewport, setViewport] = useState({ w: 0, h: 0 })
@@ -1971,6 +1974,83 @@ export default function Whiteboard() {
     [addItems],
   )
 
+  /* ---------- images : recadrage et masque ---------- */
+
+  /**
+   * Ouvre le recadrage, l'annule, ou l'applique. Appliquer ajuste la hauteur du bloc au
+   * rapport de la part retenue : sans ça, l'image s'étirerait pour remplir l'ancienne boîte.
+   */
+  const cropImage = useCallback(
+    (id, crop) => {
+      if (crop === 'start') {
+        setEditingId(null)
+        setCropping(id)
+        return
+      }
+      setCropping(null)
+      if (!crop) return
+
+      const image = docRef.current.items.find((item) => item.id === id)
+      if (!image) return
+      const source = image.sourceRatio ?? image.ratio ?? null
+      const ratio = croppedRatio(source, crop)
+      commit((d) => ({
+        ...d,
+        items: d.items.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                crop,
+                // Le rapport de la source est retenu une fois pour toutes : recadrer deux
+                // fois de suite ne doit pas composer les déformations.
+                sourceRatio: source,
+                ...(ratio ? { ratio, h: Math.round(item.w / ratio) } : null),
+              }
+            : item,
+        ),
+      }))
+    },
+    [commit],
+  )
+
+  /** Tire les teintes dominantes d'une image et les pose en nuancier juste à côté. */
+  const extractPalette = useCallback(
+    async (id) => {
+      const image = docRef.current.items.find((item) => item.id === id)
+      if (!image) return
+      try {
+        const colors = await paletteOf(image.src)
+        const block = {
+          id: newId(),
+          type: 'palette',
+          x: image.x,
+          y: image.y + image.h + 16,
+          w: Math.max(220, Math.min(image.w, 420)),
+          h: 96,
+          colors,
+          name: image.name ?? 'Palette',
+        }
+        commit((d) => ({ ...d, items: [...d.items, block] }))
+        setSelection({ items: [block.id], link: null })
+      } catch (error) {
+        announceNotice(error.message)
+      }
+    },
+    [commit, announceNotice],
+  )
+
+  const setMask = useCallback(
+    (mask) => {
+      const id = selectionRef.current.items[0]
+      if (!id) return
+      commit((d) => ({
+        ...d,
+        items: d.items.map((item) => (item.id === id ? { ...item, mask } : item)),
+      }))
+    },
+    [commit],
+  )
+
   /* ---------- copier, dupliquer, ordre ---------- */
 
   const clipboard = useRef([])
@@ -3402,6 +3482,11 @@ export default function Whiteboard() {
       }
       if (event.key === 'Escape') {
         setSearching(false)
+        // Un recadrage en cours se referme sans rien appliquer.
+        if (cropping) {
+          setCropping(null)
+          return
+        }
         clearSelection()
         setEditingId(null)
         setPending(null)
@@ -3437,6 +3522,7 @@ export default function Whiteboard() {
     present,
     showFrame,
     leavePresent,
+    cropping,
   ])
 
   useEffect(() => {
@@ -3563,6 +3649,11 @@ export default function Whiteboard() {
 
   const selectedSketch = useMemo(
     () => doc.items.find((item) => item.id === selectedItemId && item.type === 'sketch') ?? null,
+    [doc.items, selectedItemId],
+  )
+
+  const selectedImage = useMemo(
+    () => doc.items.find((item) => item.id === selectedItemId && item.type === 'image') ?? null,
     [doc.items, selectedItemId],
   )
 
@@ -3802,6 +3893,9 @@ export default function Whiteboard() {
               onExport={exportSketch}
               onDragEnd={onItemDragEnd}
               onCloneInPlace={cloneInPlace}
+              cropping={cropping === item.id}
+              onCrop={cropImage}
+              onPickColor={setColor}
               onSnap={snap}
               onMenu={openItemMenu}
               onToggleDone={toggleDone}
@@ -4057,6 +4151,7 @@ export default function Whiteboard() {
         selectedTable={selectedItem?.type === 'table' ? selectedItem : null}
         selectedMarkdown={selectedItem?.type === 'markdown' ? selectedItem : null}
         selectedShape={selectedShape}
+        selectedImage={selectedImage}
         canFill={selectedShape ? isClosed(selectedShape) : null}
         selectedGroup={selectedGroup}
         selectedText={selectedText}
@@ -4076,6 +4171,9 @@ export default function Whiteboard() {
           pickMarkerSize: setMarkerSize,
           setEraserMode,
           setSelectMode,
+          startCrop: (id) => cropImage(id, 'start'),
+          setMask,
+          extractPalette,
           pickTextSize,
           pickArrow,
           pickLinkStyle,

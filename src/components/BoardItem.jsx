@@ -4,10 +4,13 @@ import GroupBlock from './GroupBlock.jsx'
 import MindNode from './MindNode.jsx'
 import MapBlock from './MapBlock.jsx'
 import MarkdownBlock from './MarkdownBlock.jsx'
+import PaletteBlock from './PaletteBlock.jsx'
 import ShapeBlock from './ShapeBlock.jsx'
 import TableBlock from './TableBlock.jsx'
 import TextBlock from './TextBlock.jsx'
 import SketchBlock from './SketchBlock.jsx'
+import ImageCrop from './ImageCrop.jsx'
+import { clipOf, cropStyle } from '../lib/images.js'
 import { IconLock } from './Icons.jsx'
 import { highlight } from '../lib/highlight.js'
 import './BoardItem.css'
@@ -22,6 +25,7 @@ const MIN_SIZES = {
   markdown: { w: 200, h: 110 },
   map: { w: 220, h: 160 },
   text: { w: 90, h: 48 },
+  palette: { w: 160, h: 64 },
   code: { w: 180, h: 90 },
   default: { w: 60, h: 60 },
 }
@@ -32,6 +36,7 @@ function BoardItem({
   selected,
   soloSelected,
   editing,
+  cropping,
   interactive,
   draggable,
   locked,
@@ -43,6 +48,8 @@ function BoardItem({
   onSelect,
   onChange,
   onEdit,
+  onCrop,
+  onPickColor,
   onDelete,
   onExport,
   onDragEnd,
@@ -159,6 +166,7 @@ function BoardItem({
         editing ? 'is-editing' : '',
         linkTarget ? 'is-link-target' : '',
         locked ? 'is-locked' : '',
+        cropping ? 'is-cropping' : '',
         tween ? 'is-tween' : '',
       ]
         .filter(Boolean)
@@ -179,7 +187,13 @@ function BoardItem({
       onPointerCancel={endDrag}
       onDoubleClick={(event) => {
         // Les blocs visuels ont leur éditeur toujours ouvert : rien à basculer.
-        if (!draggable || !['code', 'node', 'text', 'table', 'markdown', 'map'].includes(item.type)) return
+        if (!draggable) return
+        if (item.type === 'image') {
+          event.stopPropagation()
+          onCrop?.(item.id, 'start')
+          return
+        }
+        if (!['code', 'node', 'text', 'table', 'markdown', 'map'].includes(item.type)) return
         event.stopPropagation()
         onEdit(editing ? null : item.id)
       }}
@@ -197,7 +211,28 @@ function BoardItem({
         </span>
       )}
 
-      {item.type === 'image' && <img src={item.src} alt={item.name} draggable={false} />}
+      {item.type === 'image' && (
+        <img
+          src={item.src}
+          alt={item.name}
+          draggable={false}
+          // Pendant le recadrage on montre la source entière : c'est ce qu'on ajuste.
+          style={
+            cropping
+              ? { objectFit: 'contain' }
+              : { ...cropStyle(item), clipPath: clipOf(item.mask) ?? undefined }
+          }
+        />
+      )}
+
+      {cropping && (
+        <ImageCrop
+          item={item}
+          scale={scale}
+          onDone={(crop) => onCrop(item.id, crop)}
+          onCancel={() => onCrop(item.id, null)}
+        />
+      )}
 
       {item.type === 'dot' && <span className="dot" style={{ background: item.color }} />}
 
@@ -208,6 +243,10 @@ function BoardItem({
       {item.type === 'group' && <GroupBlock item={item} />}
 
       {item.type === 'shape' && <ShapeBlock item={item} />}
+
+      {item.type === 'palette' && (
+        <PaletteBlock item={item} canEdit={Boolean(draggable)} onPick={onPickColor} />
+      )}
 
       {item.type === 'map' && (
         <MapBlock item={item} editing={editing} onChange={onChange} onEdit={onEdit} />
@@ -278,7 +317,7 @@ function BoardItem({
         </div>
       )}
 
-      {soloSelected && draggable && !editing && (
+      {soloSelected && draggable && !editing && !cropping && (
         <>
           <button
             className="item__delete"

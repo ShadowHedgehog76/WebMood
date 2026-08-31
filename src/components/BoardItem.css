@@ -44,6 +44,17 @@
   outline-offset: calc(2px * var(--inv));
 }
 
+/* La fenêtre de recadrage est une simple découpe : l'image déborde, le bloc la coupe.
+   Pendant le réglage, la barre de validation sort du bloc : on rouvre les vannes. */
+.item--image {
+  overflow: hidden;
+  border-radius: calc(4px * var(--inv));
+}
+
+.item--image.is-cropping {
+  overflow: visible;
+}
+
 .item--image img {
   width: 100%;
   height: 100%;

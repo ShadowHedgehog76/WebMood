@@ -4,6 +4,7 @@ import { ALIGNMENTS } from '../lib/align.js'
 import { ARROW_STYLES, LINK_STYLES } from '../lib/links.js'
 import { COLOR_ROWS, NEUTRAL_ROW, QUICK_COLORS } from '../lib/palette.js'
 import { CLOSED, SHAPES } from '../lib/shapes.js'
+import { MASKS, isCropped } from '../lib/images.js'
 import { DASHABLE, LINE_DASHES } from '../lib/dashes.js'
 import { BRUSHES, DASHABLE_BRUSHES } from '../lib/brushes.js'
 import { MINDMAP_LAYOUTS } from '../lib/mindmap.js'
@@ -30,6 +31,9 @@ import {
   IconImage,
   IconLaser,
   IconLasso,
+  IconCrop,
+  IconSwatch,
+  IconMask,
   IconLine,
   IconMagnet,
   IconMap,
@@ -118,6 +122,7 @@ export default function Toolbar({
   selectedTable,
   selectedMarkdown,
   selectedShape,
+  selectedImage,
   canFill,
   selectedGroup,
   selectedText,
@@ -405,6 +410,38 @@ export default function Toolbar({
           >
             <IconRowPlus size={17} column minus />
           </button>
+        </>
+      )
+    }
+
+    if (selectedImage) {
+      return (
+        <>
+          <button
+            className={`chip chip--icon ${isCropped(selectedImage) ? 'is-active' : ''}`}
+            onClick={() => actions.startCrop(selectedImage.id)}
+            {...tipProps('Recadrer l’image (ou double-clic dessus)')}
+          >
+            <IconCrop size={17} />
+          </button>
+          <button
+            className="chip chip--icon"
+            onClick={() => actions.extractPalette(selectedImage.id)}
+            {...tipProps('Extraire les couleurs dominantes')}
+          >
+            <IconSwatch size={17} />
+          </button>
+          {separator}
+          {MASKS.map((mask) => (
+            <button
+              key={mask.key}
+              className={`chip chip--icon ${(selectedImage.mask ?? 'none') === mask.key ? 'is-active' : ''}`}
+              onClick={() => actions.setMask(mask.key)}
+              {...tipProps(mask.label)}
+            >
+              <IconMask size={17} kind={mask.key} />
+            </button>
+          ))}
         </>
       )
     }

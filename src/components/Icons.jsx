@@ -254,6 +254,36 @@ export const IconExportSelection = (props) => (
   </Icon>
 )
 
+export const IconSwatch = (props) => (
+  <Icon {...props}>
+    <rect x="3.4" y="5" width="4.4" height="14" rx="1" />
+    <rect x="9.8" y="5" width="4.4" height="14" rx="1" />
+    <rect x="16.2" y="5" width="4.4" height="14" rx="1" />
+  </Icon>
+)
+
+export const IconCrop = (props) => (
+  <Icon {...props}>
+    <path d="M6.5 2.6v14.9h14.9" />
+    <path d="M2.6 6.5h14.9v14.9" />
+  </Icon>
+)
+
+/** Les masques se reconnaissent à leur silhouette : on dessine la découpe elle-même. */
+const MASK_SHAPES = {
+  none: <rect x="4" y="5.5" width="16" height="13" rx="1.6" strokeDasharray="3 2.4" />,
+  circle: <ellipse cx="12" cy="12" rx="8" ry="6.5" />,
+  rounded: <rect x="4" y="5.5" width="16" height="13" rx="4.2" />,
+  diamond: <path d="M12 4.4 19.6 12 12 19.6 4.4 12Z" />,
+  triangle: <path d="M12 4.6 20 19.4H4Z" />,
+  hexagon: <path d="M8 5.2h8l4 6.8-4 6.8H8l-4-6.8Z" />,
+  arch: <path d="M5 19.4v-6.6A7 7 0 0 1 19 12.8v6.6Z" />,
+}
+
+export const IconMask = ({ kind = 'none', ...props }) => (
+  <Icon {...props}>{MASK_SHAPES[kind] ?? MASK_SHAPES.none}</Icon>
+)
+
 export const IconLasso = (props) => (
   <Icon {...props}>
     <path d="M12 4.2c4.4 0 8 2.2 8 5s-3.6 5-8 5-8-2.2-8-5 3.6-5 8-5Z" strokeDasharray="3 2.6" />
