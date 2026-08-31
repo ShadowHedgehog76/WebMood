@@ -1,0 +1,74 @@
+/* Lien intégré : le cadre remplit le bloc, la carte tient sur une ligne. */
+.embed {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(10px * var(--inv));
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 calc(4px * var(--inv)) calc(16px * var(--inv)) rgba(15, 15, 20, 0.14);
+}
+
+.embed iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+/* Tant que le bloc n'est pas sélectionné, on rappelle ce qu'il y a dedans. */
+.embed__hint,
+.media__hint {
+  position: absolute;
+  left: calc(8px * var(--inv));
+  bottom: calc(8px * var(--inv));
+  padding: calc(3px * var(--inv)) calc(8px * var(--inv));
+  border-radius: calc(20px * var(--inv));
+  background: rgba(15, 15, 20, 0.62);
+  color: #fff;
+  font-size: calc(10px * var(--inv));
+  pointer-events: none;
+}
+
+.embed__card {
+  display: flex;
+  align-items: center;
+  gap: calc(12px * var(--inv));
+  padding: calc(12px * var(--inv)) calc(14px * var(--inv));
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.embed__icon {
+  flex: 0 0 auto;
+  width: calc(32px * var(--inv));
+  height: calc(32px * var(--inv));
+  border-radius: calc(7px * var(--inv));
+  object-fit: contain;
+  background: #f2f2f4;
+}
+
+.embed__icon--fallback {
+  display: grid;
+  place-items: center;
+  color: #8a8a93;
+}
+
+.embed__text {
+  display: grid;
+  gap: calc(2px * var(--inv));
+  min-width: 0;
+}
+
+.embed__text strong {
+  font-size: calc(13px * var(--inv));
+}
+
+.embed__text small {
+  font-size: calc(11px * var(--inv));
+  color: #8a8a93;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

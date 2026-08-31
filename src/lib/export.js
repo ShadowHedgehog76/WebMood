@@ -151,6 +151,38 @@ async function layerToImage(layer, keep, bounds) {
     target.replaceWith(image)
   })
 
+  // Une vidéo ne se sérialise pas : on garde l'image affichée à cet instant.
+  const films = [...layer.querySelectorAll('video')]
+  const clonedFilms = [...clone.querySelectorAll('video')]
+  clonedFilms.forEach((target, index) => {
+    const source = films[index]
+    if (!source?.videoWidth) return target.remove()
+    const shot = document.createElement('canvas')
+    shot.width = source.videoWidth
+    shot.height = source.videoHeight
+    try {
+      shot.getContext('2d').drawImage(source, 0, 0)
+      const image = document.createElementNS(XHTML, 'img')
+      image.setAttribute('src', shot.toDataURL())
+      image.setAttribute('style', 'display:block;width:100%;height:100%;object-fit:contain')
+      target.replaceWith(image)
+    } catch {
+      target.remove()
+    }
+  })
+
+  // Un cadre intégré ne sort jamais en image : on met sa place et son nom.
+  for (const frame of [...clone.querySelectorAll('iframe')]) {
+    const label = document.createElementNS(XHTML, 'div')
+    label.textContent = frame.getAttribute('title') || 'Contenu intégré'
+    label.setAttribute(
+      'style',
+      'width:100%;height:100%;display:flex;align-items:center;justify-content:center;' +
+        'background:#f2f2f4;color:#8a8a93;font-size:12px;border:1px dashed #c9c9d2',
+    )
+    frame.replaceWith(label)
+  }
+
   // Idem pour le contenu des champs de saisie, qui n'est pas sérialisé.
   const inputs = [...layer.querySelectorAll('textarea, input')]
   const cloned = [...clone.querySelectorAll('textarea, input')]

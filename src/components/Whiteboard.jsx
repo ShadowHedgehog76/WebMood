@@ -83,6 +83,7 @@ import {
 } from '../lib/links.js'
 import { GROUP_TINTS, QUICK_COLORS } from '../lib/palette.js'
 import { lassoHits, lassoPath, thin } from '../lib/lasso.js'
+import { linkItem } from '../lib/embed.js'
 import { croppedRatio, cropOf, isCropped } from '../lib/images.js'
 import { paletteOf } from '../lib/swatch.js'
 import {
@@ -516,7 +517,7 @@ export default function Whiteboard() {
       await saveIndex({ boards: list, currentId: boardIdRef.current })
     }
 
-    const light = await cloud.uploadImages(doc, user.id)
+    const light = await cloud.uploadAssets(doc, user.id)
     if (light !== doc) {
       // Les images sont devenues des adresses : la copie locale suit, sinon on
       // renverrait le même base64 à chaque enregistrement.
@@ -3609,7 +3610,9 @@ export default function Whiteboard() {
       const text = event.clipboardData?.getData('text/plain')
       if (text?.trim()) {
         event.preventDefault()
-        addItems([codeItem(text, { name: 'collé', at: viewportCenter() })])
+        // Une adresse seule devient un lien vivant, pas un bloc de texte.
+        const link = linkItem(text, viewportCenter(), newId)
+        addItems([link ?? codeItem(text, { name: 'collé', at: viewportCenter() })])
       }
     }
     window.addEventListener('paste', onPaste)
@@ -4282,7 +4285,7 @@ export default function Whiteboard() {
         ref={fileInputRef}
         type="file"
         multiple
-        accept="image/*,text/*,.js,.jsx,.ts,.tsx,.py,.json,.css,.html,.md,.yml,.yaml,.sh,.sql,.go,.rs"
+        accept="image/*,video/*,audio/*,application/pdf,text/*,.js,.jsx,.ts,.tsx,.py,.json,.css,.html,.md,.yml,.yaml,.sh,.sql,.go,.rs"
         hidden
         onChange={(event) => {
           importFiles(event.target.files)

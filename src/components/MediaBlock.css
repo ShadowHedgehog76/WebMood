@@ -1,0 +1,62 @@
+/* Vidéo, son, PDF : le média remplit le bloc, ses commandes restent lisibles. */
+.media {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(10px * var(--inv));
+  overflow: hidden;
+  background: #101014;
+  box-shadow: 0 calc(4px * var(--inv)) calc(16px * var(--inv)) rgba(15, 15, 20, 0.18);
+}
+
+.media video,
+.media iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  object-fit: contain;
+}
+
+.media--audio,
+.media--pdf {
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--inv));
+  padding: calc(10px * var(--inv));
+}
+
+.media--audio audio {
+  width: 100%;
+}
+
+.media--pdf {
+  padding: 0;
+}
+
+.media--pdf iframe {
+  flex: 1;
+  min-height: 0;
+}
+
+.media__name {
+  font-size: calc(11px * var(--inv));
+  color: #6b6b73;
+  padding: calc(6px * var(--inv)) calc(10px * var(--inv)) 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.media--pdf .media__name {
+  padding: calc(4px * var(--inv)) calc(10px * var(--inv)) calc(6px * var(--inv));
+}
+
+.media--failed {
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: #8a8a93;
+  font-size: calc(12px * var(--inv));
+}

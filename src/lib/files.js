@@ -3,6 +3,10 @@ import { NODE_H, NODE_W, ROOT_H, ROOT_W } from './mindmap.js'
 import { SKETCH_TEMPLATES } from './sketch.js'
 
 const MAX_IMAGE_DIM = 1800 // au-delà, on rééchantillonne avant de stocker
+// Un média voyage en `data:` dans le document : au-delà, on refuse plutôt que d'alourdir
+// l'enregistrement, la synchronisation et l'envoi en ligne.
+const MAX_MEDIA_BYTES = 40 * 1024 * 1024
+const MEDIA_WIDTH = 480
 const DEFAULT_IMAGE_WIDTH = 420
 const CODE_WIDTH = 460
 const CODE_LINE_HEIGHT = 20
@@ -86,6 +90,41 @@ export async function imageItem(file, at) {
     name: file.name || 'image',
     src,
     ratio: width / height,
+    x: Math.round(at.x - w / 2),
+    y: Math.round(at.y - h / 2),
+    w,
+    h,
+  }
+}
+
+/** Vidéo, son ou PDF : trois façons de lire, un seul type de bloc. */
+export function mediaKind(file) {
+  if (file.type.startsWith('video/')) return 'video'
+  if (file.type.startsWith('audio/')) return 'audio'
+  if (file.type === 'application/pdf') return 'pdf'
+  return null
+}
+
+const MEDIA_SHAPE = {
+  video: { w: MEDIA_WIDTH, h: Math.round(MEDIA_WIDTH / (16 / 9)) },
+  audio: { w: 360, h: 92 },
+  pdf: { w: 420, h: 560 },
+}
+
+export async function mediaItem(file, at) {
+  const kind = mediaKind(file)
+  if (file.size > MAX_MEDIA_BYTES) {
+    throw new Error(`${file.name} dépasse 40 Mo : trop lourd pour le document.`)
+  }
+  const src = await readAsDataUrl(file)
+  const { w, h } = MEDIA_SHAPE[kind]
+
+  return {
+    id: newId(),
+    type: 'media',
+    kind,
+    name: file.name || kind,
+    src,
     x: Math.round(at.x - w / 2),
     y: Math.round(at.y - h / 2),
     w,
@@ -268,6 +307,8 @@ export async function itemsFromFiles(files, at) {
     try {
       if (file.type.startsWith('image/')) {
         items.push(await imageItem(file, offset))
+      } else if (mediaKind(file)) {
+        items.push(await mediaItem(file, offset))
       } else if (isTextFile(file)) {
         items.push(codeItem(await readAsText(file), { name: file.name, at: offset }))
       } else {

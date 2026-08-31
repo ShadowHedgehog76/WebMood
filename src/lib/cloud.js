@@ -193,14 +193,17 @@ function decodeDataUrl(source) {
  * Les images d'un document partent dans Storage et ne laissent qu'une adresse : sans ça,
  * chaque enregistrement renverrait plusieurs mégaoctets de base64 dans la base.
  */
-export async function uploadImages(doc, userId) {
+/** Tout ce qui voyage en `data:` dans le document : images, vidéos, sons, PDF. */
+const HEAVY = new Set(['image', 'media'])
+
+export async function uploadAssets(doc, userId) {
   const items = doc.items ?? []
-  if (!items.some((item) => item.type === 'image' && item.src?.startsWith('data:'))) return doc
+  if (!items.some((item) => HEAVY.has(item.type) && item.src?.startsWith('data:'))) return doc
 
   const supabase = await db()
   const next = []
   for (const item of items) {
-    if (item.type !== 'image' || !item.src?.startsWith('data:')) {
+    if (!HEAVY.has(item.type) || !item.src?.startsWith('data:')) {
       next.push(item)
       continue
     }
@@ -209,7 +212,7 @@ export async function uploadImages(doc, userId) {
       next.push(item)
       continue
     }
-    const extension = file.type.split('/')[1]?.replace('+xml', '') ?? 'png'
+    const extension = file.type.split('/')[1]?.replace('+xml', '') ?? 'bin'
     const path = `${userId}/${await digest(item.src)}.${extension}`
 
     const { error } = await supabase.storage

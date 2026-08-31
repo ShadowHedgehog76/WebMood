@@ -4,6 +4,8 @@ import GroupBlock from './GroupBlock.jsx'
 import MindNode from './MindNode.jsx'
 import MapBlock from './MapBlock.jsx'
 import MarkdownBlock from './MarkdownBlock.jsx'
+import EmbedBlock from './EmbedBlock.jsx'
+import MediaBlock from './MediaBlock.jsx'
 import PaletteBlock from './PaletteBlock.jsx'
 import ShapeBlock from './ShapeBlock.jsx'
 import TableBlock from './TableBlock.jsx'
@@ -26,6 +28,8 @@ const MIN_SIZES = {
   map: { w: 220, h: 160 },
   text: { w: 90, h: 48 },
   palette: { w: 160, h: 64 },
+  media: { w: 180, h: 80 },
+  embed: { w: 220, h: 90 },
   code: { w: 180, h: 90 },
   default: { w: 60, h: 60 },
 }
@@ -243,6 +247,10 @@ function BoardItem({
       {item.type === 'group' && <GroupBlock item={item} />}
 
       {item.type === 'shape' && <ShapeBlock item={item} />}
+
+      {item.type === 'media' && <MediaBlock item={item} active={Boolean(soloSelected)} />}
+
+      {item.type === 'embed' && <EmbedBlock item={item} active={Boolean(soloSelected)} />}
 
       {item.type === 'palette' && (
         <PaletteBlock item={item} canEdit={Boolean(draggable)} onPick={onPickColor} />

@@ -215,6 +215,30 @@ grille de 6³ cases, et on garde les cases les plus peuplées en écartant celle
 ressemblent trop, à teinte franche préférée sur le gris ([swatch.js](src/lib/swatch.js)). Une
 image qui n'a que trois teintes rend trois teintes, pas cinq dont deux doublons.
 
+### Médias et liens
+
+Le tableau accueille aussi ce qui n'est pas une image :
+
+- **vidéo** et **son** déposés (ou collés) deviennent un bloc qui se lit sur place ; une
+  vidéo hors de l'écran se met en pause toute seule, comme les blocs visuels ;
+- un **PDF** s'affiche page à page dans le bloc. Le navigateur refuse une adresse `data:`
+  dans un cadre : le fichier est donc reconverti en objet local le temps de la vue, et
+  libéré en partant — le document, lui, garde la version portable ;
+- **coller une adresse** pose un lien vivant plutôt qu'un bloc de texte. YouTube, Vimeo,
+  Figma, Spotify, CodePen et Google Maps s'intègrent dans un cadre ; tout le reste devient
+  une **carte** (favicon, domaine, adresse) qui s'ouvre d'un clic
+  ([embed.js](src/lib/embed.js)). Ce n'est pas un renoncement : la quasi-totalité des sites
+  refusent d'être encadrés (`X-Frame-Options`), et un cadre vide ne rend service à personne.
+
+Un cadre intégré n'écoute le pointeur **que si son bloc est sélectionné** — sinon la page
+intégrée avalerait tout et le bloc ne serait plus ni déplaçable ni sélectionnable.
+
+Deux limites assumées : un média voyage en `data:` dans le document et **plafonne à 40 Mo**
+(au-delà, l'import est refusé plutôt que d'alourdir l'enregistrement, la synchronisation et
+l'envoi en ligne — avec un compte, il part dans le Storage comme les images) ; et **un cadre
+intégré ne sort pas dans l'export PNG** : il y laisse sa place et son nom. Une vidéo, elle,
+sort avec l'image affichée à cet instant.
+
 ## Blocs visuels (code exécuté)
 
 Le bouton **étincelles** crée un bloc coupé en deux : **le code à gauche, le rendu à droite**,
@@ -609,6 +633,8 @@ src/
     BoardItem.css
     ImageCrop.jsx           recadrage d'une image : volets d'ombre, poignées, validation
     Library.jsx             bibliothèque de modèles : parcourir, renommer, reposer
+    MediaBlock.jsx          vidéo, son et PDF lus sur place
+    EmbedBlock.jsx          cadre intégré ou carte de lien
     Thumb.jsx               vignette partagée (rail des tableaux, bibliothèque)
     PaletteBlock.jsx        nuancier tiré d'une image, cliquable
     GroupBlock.jsx          zone de groupe : bande de couleur + zone colorée
@@ -622,7 +648,8 @@ src/
     Links.css
   lib/
     storage.js              IndexedDB + repli localStorage
-    files.js                fichiers → éléments (rééchantillonnage image, blocs de code)
+    files.js                fichiers → éléments (image, vidéo, son, PDF, blocs de code)
+    embed.js                liens : intégration chez les services connus, carte ailleurs
     highlight.js            coloration syntaxique minimale + détection de langage
     sketch.js               exécution des blocs visuels (2D / SVG / three.js) + capture
     links.js                géométrie des fils : ancrage, courbe, pointes de flèche
