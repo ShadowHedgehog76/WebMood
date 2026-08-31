@@ -6,6 +6,7 @@
 const DB_NAME = 'moodboard'
 const STORE = 'boards'
 const INDEX_KEY = 'index'
+const STENCILS_KEY = 'stencils'
 const LEGACY_KEY = 'default'
 const LS_PREFIX = 'moodboard:'
 const VERSION = 1
@@ -117,4 +118,17 @@ export function saveBoard(id, board) {
 
 export function deleteBoard(id) {
   return remove(id)
+}
+
+/**
+ * Bibliothèque de modèles : un seul enregistrement, partagé par tous les tableaux —
+ * c'est bien l'intérêt, reposer ailleurs ce qu'on a mis de côté ici.
+ */
+export async function loadStencils() {
+  const list = await read(STENCILS_KEY)
+  return Array.isArray(list) ? list : []
+}
+
+export function saveStencils(list) {
+  return write(STENCILS_KEY, list)
 }

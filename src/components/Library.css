@@ -1,0 +1,131 @@
+/* Bibliothèque de modèles : un panneau posé au centre, comme les autres fenêtres. */
+.library {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 15, 20, 0.28);
+  animation: fade-in var(--fast, 120ms) var(--ease, ease);
+}
+
+.library__panel {
+  width: min(460px, calc(100vw - 40px));
+  max-height: min(70vh, 620px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(15, 15, 20, 0.3);
+  padding: 18px 20px 14px;
+  animation: tour-card var(--slow) var(--ease-spring);
+}
+
+.library__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.library__head h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.library__close {
+  border: 0;
+  background: transparent;
+  font-size: 15px;
+  line-height: 1;
+  color: #8a8a93;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.library__empty {
+  margin: 8px 0 6px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #6b6b73;
+}
+
+.library__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  display: grid;
+  gap: 4px;
+}
+
+.library__entry {
+  display: grid;
+  grid-template-columns: 46px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  border-radius: 10px;
+  padding: 4px 6px;
+  transition: background var(--fast, 120ms) var(--ease, ease);
+}
+
+.library__entry:hover {
+  background: #f4f4f6;
+}
+
+.library__place,
+.library__label,
+.library__remove {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.library__place {
+  width: 46px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+}
+
+.library__label {
+  display: grid;
+  gap: 1px;
+}
+
+.library__label small {
+  font-size: 11px;
+  color: #8a8a93;
+}
+
+.library__name {
+  border: 1px solid #3b82f6;
+  border-radius: 7px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 13px;
+  width: 100%;
+}
+
+.library__remove {
+  color: #b0b0b8;
+  padding: 6px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  transition: color var(--fast, 120ms) var(--ease, ease);
+}
+
+.library__remove:hover {
+  color: #e5484d;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library,
+  .library__panel {
+    animation: none;
+  }
+}

@@ -11,6 +11,7 @@ import QuickChat from './QuickChat.jsx'
 import Pings from './Pings.jsx'
 import ArcHandles from './ArcHandles.jsx'
 import PathHandles from './PathHandles.jsx'
+import Library from './Library.jsx'
 import Tour, { STEPS } from './Tour.jsx'
 import AccountDialog from './AccountDialog.jsx'
 import * as cloud from '../lib/cloud.js'
@@ -88,7 +89,9 @@ import {
   deleteBoard,
   loadBoard,
   loadIndex,
+  loadStencils,
   newBoardId,
+  saveStencils,
   saveBoard,
   saveIndex,
 } from '../lib/storage.js'
@@ -239,6 +242,8 @@ export default function Whiteboard() {
   const [band, setBand] = useState(null) // rectangle de sélection en cours
   const [lasso, setLasso] = useState(null) // tracé de sélection en cours
   const [cropping, setCropping] = useState(null) // image en cours de recadrage
+  const [stencils, setStencils] = useState([]) // bibliothèque de modèles
+  const [libraryOpen, setLibraryOpen] = useState(false)
   const [selectMode, setSelectMode] = useState('band') // 'band' (rectangle) ou 'lasso'
   const [guides, setGuides] = useState([]) // repères d'aimantation
   const [viewport, setViewport] = useState({ w: 0, h: 0 })
@@ -2123,6 +2128,56 @@ export default function Whiteboard() {
       })
     },
     [commit],
+  )
+
+  /* ---------- bibliothèque de modèles ---------- */
+
+  useEffect(() => {
+    loadStencils().then(setStencils).catch(() => {})
+  }, [])
+
+  const writeStencils = useCallback((list) => {
+    setStencils(list)
+    saveStencils(list)
+  }, [])
+
+  /** Met la sélection de côté, normalisée à l'origine pour être reposée n'importe où. */
+  const saveStencil = useCallback(() => {
+    const chosen = docRef.current.items.filter((item) =>
+      selectionRef.current.items.includes(item.id),
+    )
+    if (!chosen.length) return
+    const minX = Math.min(...chosen.map((item) => item.x))
+    const minY = Math.min(...chosen.map((item) => item.y))
+    const items = chosen.map((item) => ({ ...item, x: item.x - minX, y: item.y - minY }))
+
+    const stencil = {
+      id: newId(),
+      name: chosen.length === 1 ? (chosen[0].name ?? 'Modèle') : `Modèle ${stencils.length + 1}`,
+      items,
+      preview: makePreview({ items, strokes: [], links: [] }),
+      at: Date.now(),
+    }
+    writeStencils([...stencils, stencil])
+    announceNotice(`« ${stencil.name} » ajouté à la bibliothèque.`)
+  }, [stencils, writeStencils, announceNotice])
+
+  /** Repose un modèle au centre de la vue, avec de nouveaux identifiants. */
+  const placeStencil = useCallback(
+    (stencil) => {
+      const center = viewportCenter()
+      const width = Math.max(...stencil.items.map((item) => item.x + item.w))
+      const height = Math.max(...stencil.items.map((item) => item.y + item.h))
+      const copies = cloneItems(stencil.items, {
+        dx: Math.round(center.x - width / 2),
+        dy: Math.round(center.y - height / 2),
+      })
+      commit((d) => ({ ...d, items: [...d.items, ...copies] }))
+      setTool('select')
+      setSelection({ items: copies.map((item) => item.id), link: null })
+      setLibraryOpen(false)
+    },
+    [cloneItems, commit],
   )
 
   /* ---------- carte mentale ---------- */
@@ -4023,6 +4078,17 @@ export default function Whiteboard() {
         <Laser trails={lasers} view={viewRef} />
       </div>
 
+      <Library
+        open={libraryOpen}
+        stencils={stencils}
+        onClose={() => setLibraryOpen(false)}
+        onPlace={placeStencil}
+        onRename={(id, name) =>
+          writeStencils(stencils.map((entry) => (entry.id === id ? { ...entry, name } : entry)))
+        }
+        onRemove={(id) => writeStencils(stencils.filter((entry) => entry.id !== id))}
+      />
+
       <AccountDialog
         open={accountOpen}
         user={account}
@@ -4111,6 +4177,7 @@ export default function Whiteboard() {
         onImportJson={importJson}
         onShare={() => setShare(true)}
         onTour={() => setTourStep(0)}
+        onLibrary={() => setLibraryOpen(true)}
         account={account}
         cloudReady={cloud.configured()}
         onAccount={() => setAccountOpen(true)}
@@ -4174,6 +4241,7 @@ export default function Whiteboard() {
           startCrop: (id) => cropImage(id, 'start'),
           setMask,
           extractPalette,
+          saveStencil,
           pickTextSize,
           pickArrow,
           pickLinkStyle,

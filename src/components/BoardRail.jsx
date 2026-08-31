@@ -7,36 +7,15 @@ import {
   IconExportSelection,
   IconImage,
   IconHelp,
+  IconLibrary,
   IconLink,
   IconShare,
   IconUser,
   IconTrash,
   IconUpload,
 } from './Icons.jsx'
+import Thumb from './Thumb.jsx'
 import './BoardRail.css'
-
-/** Miniature d'un tableau, dessinée depuis les rectangles stockés dans l'index. */
-function Thumb({ preview }) {
-  return (
-    <span className="thumb">
-      <span className="thumb__inner" style={{ aspectRatio: preview?.ratio || 1 }}>
-        {preview?.rects?.map((rect, index) => (
-          <span
-            key={index}
-            className={`thumb__rect thumb__rect--${rect.t}`}
-            style={{
-              left: `${rect.x * 100}%`,
-              top: `${rect.y * 100}%`,
-              width: `${Math.max(3, rect.w * 100)}%`,
-              height: `${Math.max(3, rect.h * 100)}%`,
-              background: rect.c ?? undefined,
-            }}
-          />
-        ))}
-      </span>
-    </span>
-  )
-}
 
 /**
  * Rail de gauche : réduit, il montre les vignettes ; au survol il s'ouvre sur la liste
@@ -56,6 +35,7 @@ export default function BoardRail({
   onImportJson,
   onShare,
   onTour,
+  onLibrary,
   account,
   cloudReady,
   onAccount,
@@ -165,6 +145,13 @@ export default function BoardRail({
         </button>
 
         <span className="rail__sep" />
+
+        <button className="rail__action" onClick={onLibrary}>
+          <span className="rail__slot">
+            <IconLibrary size={18} />
+          </span>
+          <span>Bibliothèque de modèles</span>
+        </button>
 
         <button className="rail__action" onClick={onTour}>
           <span className="rail__slot">

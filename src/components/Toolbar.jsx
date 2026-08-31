@@ -31,6 +31,7 @@ import {
   IconImage,
   IconLaser,
   IconLasso,
+  IconLibrary,
   IconCrop,
   IconSwatch,
   IconMask,
@@ -255,6 +256,14 @@ export default function Toolbar({
   const contextual = (() => {
     if (selectedCount > 1) {
       return [
+        <button
+          key="stencil"
+          className="chip chip--icon"
+          onClick={actions.saveStencil}
+          {...tipProps('Enregistrer comme modèle')}
+        >
+          <IconLibrary size={17} />
+        </button>,
         styleReady ? (
           <button
             key="style"
@@ -626,6 +635,15 @@ export default function Toolbar({
   const lock = selectedItem ? (
     <>
       {!selectedItem.locked && styleBrush}
+      {!selectedItem.locked && (
+        <button
+          className="chip chip--icon"
+          onClick={actions.saveStencil}
+          {...tipProps('Enregistrer comme modèle')}
+        >
+          <IconLibrary size={17} />
+        </button>
+      )}
       <button
         className={`chip chip--icon ${selectedItem.locked ? 'is-active' : ''}`}
         onClick={actions.toggleLock}

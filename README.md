@@ -392,6 +392,19 @@ règle (lecture ouverte, écriture et suppression dans son propre dossier).
 Hors connexion, rien ne change : les tableaux restent dans IndexedDB et le compte est
 facultatif.
 
+## Bibliothèque de modèles
+
+Sélectionner un ou plusieurs blocs puis **Enregistrer comme modèle** (barre de réglages) met
+le morceau de côté ; **Bibliothèque de modèles** dans le rail le repose au centre de la vue,
+sur n'importe quel tableau. Quand on refait dix fois le même schéma, c'est ce qui change une
+journée de travail.
+
+Le modèle est enregistré **normalisé à l'origine** — les positions sont ramenées au coin haut
+gauche du groupe — ce qui permet de le reposer n'importe où sans traîner ses anciennes
+coordonnées. Il vit à côté des tableaux dans IndexedDB, sous sa propre clé, donc il traverse
+les tableaux et les sessions ([storage.js](src/lib/storage.js)). Chaque entrée se renomme d'un
+clic sur son nom, et se retire de la corbeille en bout de ligne.
+
 ## Partage et collaboration
 
 Le rail propose **Partager ce tableau**, qui ouvre deux façons de faire
@@ -595,6 +608,8 @@ src/
     BoardItem.jsx           élément image / code / visuel / groupe : déplacer, redimensionner
     BoardItem.css
     ImageCrop.jsx           recadrage d'une image : volets d'ombre, poignées, validation
+    Library.jsx             bibliothèque de modèles : parcourir, renommer, reposer
+    Thumb.jsx               vignette partagée (rail des tableaux, bibliothèque)
     PaletteBlock.jsx        nuancier tiré d'une image, cliquable
     GroupBlock.jsx          zone de groupe : bande de couleur + zone colorée
     MindNode.jsx            nœud de carte mentale : case à cocher, jauge, édition

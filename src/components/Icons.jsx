@@ -254,6 +254,14 @@ export const IconExportSelection = (props) => (
   </Icon>
 )
 
+export const IconLibrary = (props) => (
+  <Icon {...props}>
+    <rect x="3.2" y="4.4" width="4.6" height="15.2" rx="1.1" />
+    <rect x="9.6" y="4.4" width="4.6" height="15.2" rx="1.1" />
+    <path d="m16.4 6.2 3.4-.9 3.1 13.5-3.4.9z" transform="translate(-2.2 0)" />
+  </Icon>
+)
+
 export const IconSwatch = (props) => (
   <Icon {...props}>
     <rect x="3.4" y="5" width="4.4" height="14" rx="1" />
