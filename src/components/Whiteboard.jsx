@@ -71,7 +71,7 @@ import {
   shapeItem,
   straighten,
 } from '../lib/shapes.js'
-import { DASHABLE, LINE_DASHES, dashPattern } from '../lib/dashes.js'
+import { DOUBLE_ONLY, dashPattern } from '../lib/dashes.js'
 import { alignItems } from '../lib/align.js'
 import {
   arcEnds,
@@ -3920,6 +3920,18 @@ export default function Whiteboard() {
     else if (selectedShape) changeItem(selectedShape.id, { dash: value }, true)
   }
 
+  /**
+   * Changer de pinceau peut retirer des motifs : seul le stylo sait tenir une
+   * alternance. On retombe alors sur le trait plein plutôt que de laisser un réglage
+   * actif mais sans effet.
+   */
+  const pickBrush = (value) => {
+    setBrush(value)
+    if (!DASHABLE_BRUSHES.has(value) && !DOUBLE_ONLY.some((style) => style.key === dash)) {
+      setDash('solid')
+    }
+  }
+
   const pickLinkStyle = (value) => {
     setLinkStyle(value)
     if (selectedLinkId) changeLink(selectedLinkId, { style: value })
@@ -4323,7 +4335,7 @@ export default function Whiteboard() {
           pickArrow,
           pickLinkStyle,
           pickDash,
-          pickBrush: setBrush,
+          pickBrush,
           toggleLock,
           straightenShape,
           present: () => showFrame(0),

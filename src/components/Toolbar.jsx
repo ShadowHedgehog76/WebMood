@@ -6,7 +6,7 @@ import { COLOR_ROWS, NEUTRAL_ROW, QUICK_COLORS } from '../lib/palette.js'
 import { CLOSED, SHAPES } from '../lib/shapes.js'
 import { MASKS, isCropped } from '../lib/images.js'
 import { CHARTS } from '../lib/chart.js'
-import { DASHABLE, LINE_DASHES } from '../lib/dashes.js'
+import { DASHABLE, DOUBLE_ONLY, LINE_DASHES } from '../lib/dashes.js'
 import { BRUSHES, DASHABLE_BRUSHES } from '../lib/brushes.js'
 import { MINDMAP_LAYOUTS } from '../lib/mindmap.js'
 import { SKETCH_MODES } from '../lib/sketch.js'
@@ -626,10 +626,10 @@ export default function Toolbar({
           ))}
           {separator}
           {sizes([2, 5, 10, 20], size, actions.pickSize, 'Épaisseur', [1, 60])}
-          {/* Les motifs ne valent que pour le stylo : ailleurs, chaque segment les
-              redémarrerait et le trait ressemblerait à des miettes. */}
-          {DASHABLE_BRUSHES.has(brush) && separator}
-          {DASHABLE_BRUSHES.has(brush) && dashes(DASHABLE)}
+          {separator}
+          {/* Les alternances ne valent que pour le stylo — ailleurs chaque segment les
+              redémarrerait — mais le trait double marche avec tous les pinceaux. */}
+          {dashes(DASHABLE_BRUSHES.has(brush) ? LINE_DASHES : DOUBLE_ONLY)}
         </>
       )
     }

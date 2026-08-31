@@ -8,6 +8,7 @@
 
 import { arrowHead, geometryFor, pathWithArrows } from './links.js'
 import { DOUBLE_SPREAD, dashPattern, isDouble } from './dashes.js'
+import { paintBrush } from './brushes.js'
 import { branchPath, branches } from './mindmap.js'
 
 const XHTML = 'http://www.w3.org/1999/xhtml'
@@ -272,30 +273,39 @@ function drawLinks(ctx, doc, items, background) {
   }
 }
 
+/**
+ * Les traits sont repeints par le même peintre qu'à l'écran : l'export garde ainsi la
+ * matière des pinceaux (crayon, aérographe, néon…) et le trait double, au lieu d'une
+ * ligne plate. Le contexte est déjà à l'échelle du tableau : les points partent donc
+ * bruts, et l'épaisseur aussi.
+ */
 function drawStrokes(ctx, strokes) {
-  for (const stroke of strokes) {
+  // Le surligneur passe dessous, comme sur le tableau.
+  const ordered = [
+    ...strokes.filter((stroke) => stroke.tool === 'marker'),
+    ...strokes.filter((stroke) => stroke.tool !== 'marker'),
+  ]
+
+  for (const stroke of ordered) {
     if (!stroke.points.length) continue
     ctx.save()
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
-    ctx.lineWidth = stroke.size
-    if (stroke.dash) ctx.setLineDash(dashPattern(stroke.dash, stroke.size))
-    if (stroke.tool === 'eraser') {
+    if (stroke.tool === 'marker') {
+      ctx.globalAlpha = 0.35
+      ctx.globalCompositeOperation = 'multiply'
+      ctx.strokeStyle = stroke.color
+    } else if (stroke.tool === 'eraser') {
       ctx.globalCompositeOperation = 'destination-out'
       ctx.strokeStyle = 'rgba(0,0,0,1)'
     } else {
       ctx.strokeStyle = stroke.color
     }
-    ctx.beginPath()
-    ctx.moveTo(stroke.points[0].x, stroke.points[0].y)
-    for (const point of stroke.points.slice(1)) ctx.lineTo(point.x, point.y)
-    if (stroke.points.length === 1) {
-      ctx.arc(stroke.points[0].x, stroke.points[0].y, stroke.size / 2, 0, Math.PI * 2)
-      ctx.fillStyle = ctx.strokeStyle
-      ctx.fill()
-    } else {
-      ctx.stroke()
-    }
+    ctx.fillStyle = ctx.strokeStyle
+
+    // Gomme et surligneur tirent leur matière de leur mode de fusion, pas du pinceau.
+    const brushed = stroke.tool === 'pen' ? stroke : { ...stroke, brush: 'plain' }
+    paintBrush(ctx, brushed, stroke.points, Math.max(0.5, stroke.size))
     ctx.restore()
   }
 }

@@ -7,7 +7,7 @@
  * déplacement de la vue doit retomber exactement sur le même dessin, sinon il grouille.
  */
 
-import { dashPattern } from './dashes.js'
+import { dashPattern, isDouble, offsetPath } from './dashes.js'
 
 export const BRUSHES = [
   { key: 'plain', label: 'Stylo', hint: 'Trait d’épaisseur constante' },
@@ -18,7 +18,12 @@ export const BRUSHES = [
   { key: 'neon', label: 'Néon', hint: 'Cœur clair et halo coloré' },
 ]
 
-/** Seul le stylo suit les motifs de trait : ailleurs, chaque segment les redémarrerait. */
+/**
+ * Seul le stylo suit les motifs d'alternance : ailleurs, chaque segment les
+ * redémarrerait et le trait ressemblerait à des miettes. Le trait double, lui, n'est pas
+ * un motif — c'est le même tracé posé deux fois de part et d'autre : tous les pinceaux
+ * le supportent.
+ */
 export const DASHABLE_BRUSHES = new Set(['plain'])
 
 const NIB_ANGLE = -Math.PI / 4 // inclinaison de la plume calligraphique
@@ -209,6 +214,15 @@ export function paintBrush(ctx, stroke, points, width) {
     ctx.beginPath()
     ctx.arc(points[0].x, points[0].y, width / 2, 0, Math.PI * 2)
     ctx.fill()
+    return
+  }
+
+  // Trait double : deux rails parallèles, écartés d'une épaisseur de part et d'autre —
+  // le même écart que le trait double des formes et des connexions.
+  if (isDouble(stroke.dash)) {
+    const single = { ...stroke, dash: 'solid' }
+    paintBrush(ctx, single, offsetPath(points, -width), width)
+    paintBrush(ctx, single, offsetPath(points, width), width)
     return
   }
 

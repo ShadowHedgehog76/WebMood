@@ -50,7 +50,8 @@ l'outil actif :
 
 | Contexte | Réglages proposés |
 | --- | --- |
-| Crayon, gomme | couleur, épaisseur |
+| Crayon | couleur, **les six pinceaux**, épaisseur, **type de trait** |
+| Gomme | gomme classique ou trait entier, épaisseur |
 | Outil forme ou forme sélectionnée | couleur, **les six formes**, remplissage, épaisseur |
 | Connexion ou fil sélectionné | couleur, les quatre styles de flèche |
 | Bloc visuel sélectionné | **2D / Vecteur / 3D** |
@@ -81,9 +82,16 @@ choisie sert au crayon, et au fil sélectionné le cas échéant.
   (`L`), **groupe** (`G`), **main** (`H`), **note** (`T`)
 - Épaisseurs : quatre valeurs courantes plus un réglage libre au curseur ; même principe pour
   la taille d'un texte
+- **Types de trait** : plein, tirets, pointillés, tiret-point et **double** — les mêmes cinq
+  que les formes et les connexions. Les alternances ne valent que pour le pinceau *Stylo* :
+  ailleurs, la matière est posée segment par segment et le motif redémarrerait à chaque fois.
+  Le **trait double**, lui, marche avec tous les pinceaux : ce n'est pas un motif, c'est le
+  même tracé posé deux fois de part et d'autre — deux rails écartés d'une épaisseur, comme
+  le trait double d'une forme ([dashes.js](src/lib/dashes.js)). Changer pour un pinceau qui
+  ne sait pas tenir une alternance ramène au trait plein, plutôt que de laisser un réglage
+  actif mais sans effet.
 - Icônes SVG dessinées dans [Icons.jsx](src/components/Icons.jsx) : pas d'emoji, pas de police
   d'icônes
-- palette complète, 4 épaisseurs
 - **Annuler / rétablir** : `⌘Z` / `⇧⌘Z`
 - **Naviguer** : barre d'espace + glisser, clic milieu, molette / deux doigts
 - **Zoomer** : `⌘` + molette (ou pincement), boutons en bas à droite ; clic sur le pourcentage
@@ -396,8 +404,9 @@ Les vignettes ne sont pas des images : chaque sauvegarde recalcule une poignée 
 normalisés (position, taille, type, couleur) rangés dans l'index — quelques centaines d'octets
 par tableau, toujours à jour, sans rendu coûteux ([preview.js](src/lib/preview.js)).
 
-L'export PNG réunit ce qui vient de trois rendus différents : les traits sont retracés sur un
-canvas, les fils et branches sont reconstruits depuis leur géométrie, et les blocs (qui sont du
+L'export PNG réunit ce qui vient de trois rendus différents : les traits sont repeints par le
+**même peintre qu'à l'écran** — la matière des pinceaux et le trait double sortent donc
+intacts, là où une simple polyligne les aurait aplatis —, les fils et branches sont reconstruits depuis leur géométrie, et les blocs (qui sont du
 DOM) passent par un `foreignObject` SVG — avec les canvas remplacés par leur bitmap et les
 champs de saisie réinjectés, sans quoi ils sortiraient vides ([export.js](src/lib/export.js)).
 Les images hébergées en ligne sont rapatriées en `data:` avant la sérialisation, sinon elles
