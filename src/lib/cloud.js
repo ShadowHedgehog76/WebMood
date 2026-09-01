@@ -193,8 +193,8 @@ function decodeDataUrl(source) {
  * Les images d'un document partent dans Storage et ne laissent qu'une adresse : sans ça,
  * chaque enregistrement renverrait plusieurs mégaoctets de base64 dans la base.
  */
-/** Tout ce qui voyage en `data:` dans le document : images, vidéos, sons, PDF. */
-const HEAVY = new Set(['image', 'media'])
+/** Tout ce qui voyage en `data:` : images, vidéos, sons, PDF, polices, pièces jointes. */
+const HEAVY = new Set(['image', 'media', 'font', 'file'])
 
 export async function uploadAssets(doc, userId) {
   const items = doc.items ?? []

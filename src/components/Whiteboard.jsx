@@ -1864,9 +1864,12 @@ export default function Whiteboard() {
   const importFiles = useCallback(
     async (files, at) => {
       const point = at ?? viewportCenter()
-      addItems(await itemsFromFiles([...files], point))
+      const { items, refused } = await itemsFromFiles([...files], point)
+      if (items.length) addItems(items)
+      // Un fichier écarté doit se dire : sans message, on croit l'avoir raté soi-même.
+      if (refused.length) announceNotice(refused[0])
     },
-    [addItems, viewportCenter],
+    [addItems, viewportCenter, announceNotice],
   )
 
   const addText = useCallback(
@@ -4367,11 +4370,11 @@ export default function Whiteboard() {
         }}
       />
 
+      {/* Aucun filtre : ce que le navigateur ne sait pas montrer devient une pièce jointe. */}
       <input
         ref={fileInputRef}
         type="file"
         multiple
-        accept="image/*,video/*,audio/*,application/pdf,text/*,.js,.jsx,.ts,.tsx,.py,.json,.css,.html,.md,.yml,.yaml,.sh,.sql,.go,.rs"
         hidden
         onChange={(event) => {
           importFiles(event.target.files)

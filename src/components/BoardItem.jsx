@@ -6,6 +6,8 @@ import MapBlock from './MapBlock.jsx'
 import MarkdownBlock from './MarkdownBlock.jsx'
 import ChartBlock from './ChartBlock.jsx'
 import EmbedBlock from './EmbedBlock.jsx'
+import FileBlock from './FileBlock.jsx'
+import FontBlock from './FontBlock.jsx'
 import MediaBlock from './MediaBlock.jsx'
 import PaletteBlock from './PaletteBlock.jsx'
 import ShapeBlock from './ShapeBlock.jsx'
@@ -31,6 +33,8 @@ const MIN_SIZES = {
   palette: { w: 160, h: 64 },
   media: { w: 180, h: 80 },
   chart: { w: 220, h: 150 },
+  font: { w: 220, h: 120 },
+  file: { w: 220, h: 68 },
   embed: { w: 220, h: 90 },
   code: { w: 180, h: 90 },
   default: { w: 60, h: 60 },
@@ -148,8 +152,10 @@ function BoardItem({
       const min = MIN_SIZES[item.type] ?? MIN_SIZES.default
       const w = Math.max(min.w, Math.round(state.startW + (point.x - state.startPoint.x)))
       let h = Math.max(min.h, Math.round(state.startH + (point.y - state.startPoint.y)))
-      // Les images conservent leur rapport d'aspect.
-      if (item.type === 'image' && item.ratio) h = Math.round(w / item.ratio)
+      // Images et vidéos conservent leur rapport d'aspect.
+      if (item.ratio && (item.type === 'image' || item.kind === 'video')) {
+        h = Math.round(w / item.ratio)
+      }
       onChange(item.id, { w, h }, state.first)
     }
     state.first = false
@@ -258,6 +264,10 @@ function BoardItem({
       {item.type === 'media' && <MediaBlock item={item} active={Boolean(soloSelected)} />}
 
       {item.type === 'embed' && <EmbedBlock item={item} active={Boolean(soloSelected)} />}
+
+      {item.type === 'font' && <FontBlock item={item} />}
+
+      {item.type === 'file' && <FileBlock item={item} active={Boolean(soloSelected)} />}
 
       {item.type === 'palette' && (
         <PaletteBlock item={item} canEdit={Boolean(draggable)} onPick={onPickColor} />

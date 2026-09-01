@@ -111,13 +111,93 @@ const MEDIA_SHAPE = {
   pdf: { w: 420, h: 560 },
 }
 
+/**
+ * Interroge un média avant de le poser : ses vraies proportions, sa durée, et pour une
+ * vidéo une image de son début.
+ *
+ * C'est aussi le seul test honnête de lisibilité. `canPlayType` ne connaît que le
+ * conteneur et répond « peut-être » à un `.mkv` ou à un `.mov` dont le codec n'est en
+ * fait pas décodé — ce qui donne un rectangle noir. Ici on ouvre vraiment le fichier :
+ * s'il ne s'ouvre pas, on le sait.
+ */
+function probeMedia(src, kind) {
+  return new Promise((resolve) => {
+    const media = document.createElement(kind)
+    media.preload = 'metadata'
+    media.muted = true
+    if (kind === 'video') media.playsInline = true
+
+    const giveUp = setTimeout(() => resolve(null), 5000)
+    const done = (value) => {
+      clearTimeout(giveUp)
+      resolve(value)
+    }
+
+    media.onerror = () => done(null)
+    media.onloadedmetadata = () => {
+      const shape = {
+        width: media.videoWidth || 0,
+        height: media.videoHeight || 0,
+        duration: Number.isFinite(media.duration) ? media.duration : null,
+        poster: null,
+      }
+      // Une piste sonore n'a pas d'image, et une vidéo sans dimensions n'est pas décodée.
+      if (kind === 'audio') return done(shape)
+      if (!shape.width || !shape.height) return done(null)
+
+      // Une image prise juste après le début : le tout premier cadre est souvent noir.
+      media.onseeked = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = Math.min(640, shape.width)
+          canvas.height = Math.round((shape.height / shape.width) * canvas.width)
+          canvas.getContext('2d').drawImage(media, 0, 0, canvas.width, canvas.height)
+          shape.poster = canvas.toDataURL('image/jpeg', 0.72)
+        } catch {
+          /* image protégée : on s'en passe */
+        }
+        done(shape)
+      }
+      media.onerror = () => done(shape) // les dimensions sont acquises, l'image non
+      media.currentTime = Math.min(0.4, (media.duration || 1) / 10)
+    }
+    media.src = src
+  })
+}
+
+/** Signale un média que le navigateur n'ouvre pas : l'import en fera une pièce jointe. */
+export class Unplayable extends Error {}
+
+/** Durée écrite comme sur un lecteur : 1:04, ou 12:03:40 pour un long métrage. */
+export function formatDuration(seconds) {
+  if (!Number.isFinite(seconds)) return null
+  const total = Math.round(seconds)
+  const parts = [Math.floor(total / 3600), Math.floor((total % 3600) / 60), total % 60]
+  return (parts[0] ? parts : parts.slice(1))
+    .map((value, index) => (index === 0 ? String(value) : String(value).padStart(2, '0')))
+    .join(':')
+}
+
 export async function mediaItem(file, at) {
   const kind = mediaKind(file)
   if (file.size > MAX_MEDIA_BYTES) {
     throw new Error(`${file.name} dépasse 40 Mo : trop lourd pour le document.`)
   }
   const src = await readAsDataUrl(file)
-  const { w, h } = MEDIA_SHAPE[kind]
+  let { w, h } = MEDIA_SHAPE[kind]
+  let extra = null
+
+  if (kind !== 'pdf') {
+    const shape = await probeMedia(src, kind)
+    if (!shape) throw new Unplayable(file.name)
+    extra = { duration: shape.duration }
+    if (kind === 'video') {
+      const ratio = shape.width / shape.height
+      w = MEDIA_WIDTH
+      h = Math.round(MEDIA_WIDTH / ratio)
+      extra = { ...extra, ratio, poster: shape.poster }
+    }
+  }
 
   return {
     id: newId(),
@@ -125,6 +205,7 @@ export async function mediaItem(file, at) {
     kind,
     name: file.name || kind,
     src,
+    ...extra,
     x: Math.round(at.x - w / 2),
     y: Math.round(at.y - h / 2),
     w,
@@ -251,12 +332,18 @@ export function chartItem({ source, at = { x: 0, y: 0 }, chart = 'column', title
 }
 
 /**
- * Un CSV devient un tableau — modifiable, et prêt à porter un graphique. Le séparateur
- * est deviné : le point-virgule est la norme des tableurs français.
+ * Un CSV ou un TSV devient un tableau — modifiable, et prêt à porter un graphique. Le
+ * séparateur est deviné en comptant : le point-virgule est la norme des tableurs
+ * français, la tabulation celle des copier-coller depuis un tableur.
  */
-export function csvTable(text, at) {
+export function sheetTable(text, at) {
   const lines = text.split(/\r?\n/).filter((line) => line.trim())
-  const separator = (lines[0].match(/;/g)?.length ?? 0) > (lines[0].match(/,/g)?.length ?? 0) ? ';' : ','
+  const counts = [
+    ['\t', (lines[0].match(/\t/g) ?? []).length],
+    [';', (lines[0].match(/;/g) ?? []).length],
+    [',', (lines[0].match(/,/g) ?? []).length],
+  ]
+  const separator = counts.sort((a, b) => b[1] - a[1])[0][1] ? counts[0][0] : ','
   const cells = lines
     .slice(0, 200)
     .map((line) => line.split(separator).map((cell) => cell.trim().replace(/^"|"$/g, '')))
@@ -340,29 +427,101 @@ export function imageItemFromShot(source, shot) {
   }
 }
 
-/** Convertit une liste de fichiers (drop, presse-papiers, sélecteur) en éléments. */
+const FONT_SIZE = { w: 400, h: 220 }
+const FILE_SIZE = { w: 320, h: 76 }
+
+const extensionOf = (file) => (file.name?.split('.').pop() ?? '').toLowerCase()
+
+/**
+ * Spécimen de police. Les fontes sont petites : on les garde entières dans le document,
+ * et le bloc les charge dans la page pour les écrire pour de vrai.
+ */
+export async function fontItem(file, at) {
+  return {
+    id: newId(),
+    type: 'font',
+    name: file.name,
+    src: await readAsDataUrl(file),
+    x: Math.round(at.x - FONT_SIZE.w / 2),
+    y: Math.round(at.y - FONT_SIZE.h / 2),
+    ...FONT_SIZE,
+  }
+}
+
+/**
+ * Pièce jointe : le dernier recours, pour tout ce que le navigateur ne sait pas montrer.
+ * Le fichier reste dans le document et se retélécharge d'un clic — c'est mieux que
+ * l'ignorer en silence, ce que faisait l'import jusqu'ici.
+ */
+export async function fileItem(file, at, why = null) {
+  if (file.size > MAX_MEDIA_BYTES) {
+    throw new Error(`${file.name} dépasse 40 Mo : trop lourd pour le document.`)
+  }
+  return {
+    id: newId(),
+    type: 'file',
+    name: file.name || 'fichier',
+    ext: extensionOf(file),
+    size: file.size,
+    why,
+    src: await readAsDataUrl(file),
+    x: Math.round(at.x - FILE_SIZE.w / 2),
+    y: Math.round(at.y - FILE_SIZE.h / 2),
+    ...FILE_SIZE,
+  }
+}
+
+const FONT_EXTENSIONS = new Set(['ttf', 'otf', 'woff', 'woff2'])
+const SHEET_EXTENSIONS = new Set(['csv', 'tsv'])
+const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown', 'mdx'])
+
+/**
+ * Convertit une liste de fichiers (drop, presse-papiers, sélecteur) en éléments.
+ *
+ * L'ordre des essais va du plus spécifique au plus général, et se termine par la pièce
+ * jointe : plus rien n'est refusé en silence.
+ */
 export async function itemsFromFiles(files, at) {
   const items = []
+  const refused = []
   let index = 0
 
   for (const file of files) {
     const offset = { x: at.x + index * 24, y: at.y + index * 24 }
+    const ext = extensionOf(file)
     try {
       if (file.type.startsWith('image/')) {
-        items.push(await imageItem(file, offset))
+        // Certains formats d'image sont annoncés mais pas décodés (le HEIC des iPhone,
+        // par exemple) : le fichier reste alors joint plutôt que perdu.
+        items.push(
+          await imageItem(file, offset).catch(() =>
+            fileItem(file, offset, 'image non décodée par le navigateur'),
+          ),
+        )
+      } else if (FONT_EXTENSIONS.has(ext) || file.type.startsWith('font/')) {
+        items.push(await fontItem(file, offset))
       } else if (mediaKind(file)) {
-        items.push(await mediaItem(file, offset))
-      } else if (/\.csv$/i.test(file.name ?? '')) {
-        items.push(csvTable(await readAsText(file), offset))
+        // Un conteneur familier ne dit rien du codec : si le fichier ne s'ouvre pas,
+        // mieux vaut une pièce jointe honnête qu'un rectangle noir.
+        items.push(
+          await mediaItem(file, offset).catch((error) => {
+            if (!(error instanceof Unplayable)) throw error
+            return fileItem(file, offset, 'codec non lu par le navigateur')
+          }),
+        )
+      } else if (SHEET_EXTENSIONS.has(ext)) {
+        items.push(sheetTable(await readAsText(file), offset))
+      } else if (MARKDOWN_EXTENSIONS.has(ext)) {
+        items.push(markdownItem({ at: offset, text: await readAsText(file) }))
       } else if (isTextFile(file)) {
         items.push(codeItem(await readAsText(file), { name: file.name, at: offset }))
       } else {
-        continue
+        items.push(await fileItem(file, offset))
       }
       index += 1
     } catch (error) {
-      console.warn(`Import impossible : ${file.name}`, error)
+      refused.push(error.message ?? `${file.name} : import impossible`)
     }
   }
-  return items
+  return { items, refused }
 }

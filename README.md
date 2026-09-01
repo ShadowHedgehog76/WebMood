@@ -223,12 +223,40 @@ grille de 6³ cases, et on garde les cases les plus peuplées en écartant celle
 ressemblent trop, à teinte franche préférée sur le gris ([swatch.js](src/lib/swatch.js)). Une
 image qui n'a que trois teintes rend trois teintes, pas cinq dont deux doublons.
 
-### Médias et liens
+### Médias, formats et liens
 
-Le tableau accueille aussi ce qui n'est pas une image :
+**Rien n'est refusé en silence.** L'import essaie du plus spécifique au plus général, et
+se termine par une pièce jointe : un fichier qu'on ne sait pas montrer garde quand même sa
+place sur la planche, et se retélécharge d'un clic. Le sélecteur de fichiers n'a d'ailleurs
+plus de filtre.
 
-- **vidéo** et **son** déposés (ou collés) deviennent un bloc qui se lit sur place ; une
-  vidéo hors de l'écran se met en pause toute seule, comme les blocs visuels ;
+| Ce qu'on dépose | Ce que ça devient |
+| --- | --- |
+| image (`png`, `jpg`, `webp`, `gif`, `svg`…) | bloc image, rééchantillonné au-delà de 1800 px |
+| vidéo (`mp4`, `webm`, `mov`…) | bloc vidéo, à ses vraies proportions |
+| son (`mp3`, `wav`, `m4a`…) | bloc son avec ses commandes |
+| `pdf` | bloc feuilletable |
+| `csv`, `tsv` | **tableau** modifiable, prêt à porter un graphique |
+| `md`, `markdown`, `mdx` | **bloc markdown** rendu |
+| `ttf`, `otf`, `woff`, `woff2` | **spécimen de police**, écrit dans la fonte elle-même |
+| code et texte (une quarantaine d'extensions) | bloc de code coloré |
+| tout le reste | **pièce jointe** : nom, poids, extension, téléchargement |
+
+Le **spécimen de police** charge la fonte déposée dans la page avec `FontFace` et l'écrit
+vraiment — sur une planche de direction artistique, un nom de fichier ne dit rien du dessin
+d'un caractère.
+
+Une **vidéo est interrogée avant d'être posée** : ses vraies dimensions (au lieu d'un 16/9
+imposé), sa durée, et une image prise juste après le début — le tout premier cadre est
+souvent noir. Au repos, le bloc montre cette vignette, la durée et un bouton de lecture ;
+hors de l'écran, elle se met en pause toute seule.
+
+C'est aussi le seul test honnête de lisibilité : `canPlayType` ne connaît que le conteneur
+et répond « peut-être » à un `.mkv` ou à un `.mov` dont le codec n'est en fait pas décodé,
+ce qui donnait un rectangle noir. Ici le fichier est réellement ouvert ; s'il ne s'ouvre
+pas, il devient une pièce jointe qui **dit pourquoi** (« codec non lu par le navigateur »).
+Même chose pour une image annoncée mais non décodée, le HEIC des iPhone par exemple.
+
 - un **PDF** s'affiche page à page dans le bloc. Le navigateur refuse une adresse `data:`
   dans un cadre : le fichier est donc reconverti en objet local le temps de la vue, et
   libéré en partant — le document, lui, garde la version portable ;
@@ -685,6 +713,8 @@ src/
     Library.jsx             bibliothèque de modèles : parcourir, renommer, reposer
     ChartBlock.jsx          graphique SVG lu depuis un tableau du board
     MediaBlock.jsx          vidéo, son et PDF lus sur place
+    FontBlock.jsx           spécimen d'une police déposée
+    FileBlock.jsx           pièce jointe : ce qu'on ne sait pas afficher
     EmbedBlock.jsx          cadre intégré ou carte de lien
     Thumb.jsx               vignette partagée (rail des tableaux, bibliothèque)
     PaletteBlock.jsx        nuancier tiré d'une image, cliquable
@@ -699,7 +729,7 @@ src/
     Links.css
   lib/
     storage.js              IndexedDB + repli localStorage
-    files.js                fichiers → éléments (image, vidéo, son, PDF, blocs de code)
+    files.js                fichiers → éléments (image, vidéo, son, PDF, police, pièce jointe…)
     embed.js                liens : intégration chez les services connus, carte ailleurs
     chart.js                graphiques : lecture d'un tableau, échelles, géométrie SVG
     highlight.js            coloration syntaxique minimale + détection de langage

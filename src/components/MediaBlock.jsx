@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { formatDuration } from '../lib/files.js'
 import './MediaBlock.css'
 
 /**
@@ -71,18 +72,27 @@ export default function MediaBlock({ item, active }) {
     )
   }
 
+  const duration = formatDuration(item.duration)
+
   return (
     <div className="media media--video">
       <video
         ref={media}
         src={src}
+        poster={item.poster}
         controls={active}
         playsInline
         preload="metadata"
         onError={() => setFailed(true)}
         onPointerDown={(event) => active && event.stopPropagation()}
       />
-      {!active && <span className="media__hint">{item.name}</span>}
+      {!active && (
+        <>
+          <span className="media__hint">{item.name}</span>
+          {duration && <span className="media__time">{duration}</span>}
+          <span className="media__play" aria-hidden />
+        </>
+      )}
     </div>
   )
 }

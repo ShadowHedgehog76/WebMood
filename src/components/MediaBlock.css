@@ -60,3 +60,46 @@
   color: #8a8a93;
   font-size: calc(12px * var(--inv));
 }
+
+/* Une vidéo au repos montre sa vignette, sa durée et de quoi comprendre qu'on peut la lire. */
+.media__time {
+  position: absolute;
+  right: calc(8px * var(--inv));
+  bottom: calc(8px * var(--inv));
+  padding: calc(3px * var(--inv)) calc(7px * var(--inv));
+  border-radius: calc(20px * var(--inv));
+  background: rgba(15, 15, 20, 0.62);
+  color: #fff;
+  font-size: calc(10px * var(--inv));
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.media__play {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: calc(46px * var(--inv));
+  height: calc(46px * var(--inv));
+  border-radius: 50%;
+  background: rgba(15, 15, 20, 0.5);
+  pointer-events: none;
+  transition: background var(--fast, 120ms) var(--ease, ease);
+}
+
+.media__play::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 0;
+  height: 0;
+  border-left: calc(14px * var(--inv)) solid #fff;
+  border-top: calc(9px * var(--inv)) solid transparent;
+  border-bottom: calc(9px * var(--inv)) solid transparent;
+  transform: translateX(calc(2px * var(--inv)));
+}
+
+.media--video:hover .media__play {
+  background: rgba(15, 15, 20, 0.66);
+}

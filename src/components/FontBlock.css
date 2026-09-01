@@ -1,0 +1,48 @@
+/* Spécimen : la fonte s'écrit elle-même, du corps d'affiche au texte courant. */
+.font {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--inv));
+  width: 100%;
+  height: 100%;
+  padding: calc(14px * var(--inv)) calc(16px * var(--inv));
+  border-radius: calc(10px * var(--inv));
+  background: #fff;
+  box-shadow: 0 calc(4px * var(--inv)) calc(16px * var(--inv)) rgba(15, 15, 20, 0.14);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Le nom du fichier reste dans la police du site : c'est une étiquette, pas l'échantillon. */
+.font__name {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+  font-size: calc(10.5px * var(--inv));
+  color: #8a8a93;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.font__big {
+  font-size: calc(38px * var(--inv));
+  line-height: 1.1;
+  color: #1c1c1e;
+}
+
+.font__line {
+  font-size: calc(14px * var(--inv));
+  line-height: 1.35;
+  color: #52514e;
+}
+
+.font__digits {
+  font-size: calc(13px * var(--inv));
+  color: #8a8a93;
+  margin-top: auto;
+}
+
+.font__failed {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+  font-size: calc(11.5px * var(--inv));
+  color: #8a8a93;
+}

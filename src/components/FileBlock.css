@@ -1,0 +1,63 @@
+/* Pièce jointe : une carte sobre, l'extension en pastille. */
+.file {
+  display: flex;
+  align-items: center;
+  gap: calc(12px * var(--inv));
+  width: 100%;
+  height: 100%;
+  padding: calc(12px * var(--inv)) calc(14px * var(--inv));
+  border-radius: calc(10px * var(--inv));
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  box-shadow: 0 calc(4px * var(--inv)) calc(16px * var(--inv)) rgba(15, 15, 20, 0.14);
+  text-decoration: none;
+  color: inherit;
+  box-sizing: border-box;
+}
+
+.file__badge {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: calc(38px * var(--inv));
+  height: calc(38px * var(--inv));
+  border-radius: calc(8px * var(--inv));
+  background: #eef1f6;
+  color: #52514e;
+  font-size: calc(10px * var(--inv));
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  overflow: hidden;
+}
+
+.file__text {
+  display: grid;
+  gap: calc(2px * var(--inv));
+  min-width: 0;
+  flex: 1;
+}
+
+.file__text strong {
+  font-size: calc(12.5px * var(--inv));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file__text small {
+  font-size: calc(11px * var(--inv));
+  color: #8a8a93;
+}
+
+.file__get {
+  flex: 0 0 auto;
+  color: #8a8a93;
+  display: grid;
+  place-items: center;
+  transition: color var(--fast, 120ms) var(--ease, ease);
+}
+
+.file:hover .file__get {
+  color: #1c1c1e;
+}
