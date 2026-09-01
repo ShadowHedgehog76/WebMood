@@ -103,3 +103,28 @@
 .media--video:hover .media__play {
   background: rgba(15, 15, 20, 0.66);
 }
+
+/* Ce qui n'est rangé que sur cette machine le dit, discrètement. */
+.media__local {
+  display: inline-block;
+  margin-left: calc(6px * var(--inv));
+  padding: calc(1px * var(--inv)) calc(6px * var(--inv));
+  border-radius: calc(20px * var(--inv));
+  background: rgba(15, 15, 20, 0.55);
+  color: #fff;
+  font-size: calc(9px * var(--inv));
+  vertical-align: middle;
+}
+
+.media--audio .media__local,
+.media--pdf .media__local {
+  background: #eef1f6;
+  color: #6b6b73;
+}
+
+.media--video .media__local {
+  position: absolute;
+  left: calc(8px * var(--inv));
+  top: calc(8px * var(--inv));
+  margin: 0;
+}

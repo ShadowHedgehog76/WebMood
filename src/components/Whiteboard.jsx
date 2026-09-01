@@ -86,12 +86,15 @@ import { GROUP_TINTS, QUICK_COLORS } from '../lib/palette.js'
 import { lassoHits, lassoPath, thin } from '../lib/lasso.js'
 import { linkItem } from '../lib/embed.js'
 import { croppedRatio, cropOf, isCropped } from '../lib/images.js'
+import { isLocalAsset, keysOf } from '../lib/assets.js'
 import { paletteOf } from '../lib/swatch.js'
 import {
   deleteBoard,
   loadBoard,
   loadIndex,
+  deleteMedia,
   loadStencils,
+  mediaKeys,
   newBoardId,
   saveStencils,
   saveBoard,
@@ -768,7 +771,14 @@ export default function Whiteboard() {
 
   const saveJson = useCallback(() => {
     exportJson(docRef.current, boardName)
-  }, [boardName])
+    // Les gros médias ne sont pas dans le document : le fichier exporté ne les aura pas.
+    const local = docRef.current.items.filter(isLocalAsset).length
+    if (local) {
+      announceNotice(
+        `${local} média${local > 1 ? 's' : ''} rangé${local > 1 ? 's' : ''} sur cet appareil : le JSON ne l'emporte pas.`,
+      )
+    }
+  }, [boardName, announceNotice])
 
   const importJson = useCallback(
     async (file) => {
@@ -2134,6 +2144,36 @@ export default function Whiteboard() {
     },
     [commit],
   )
+
+  /**
+   * Ménage des gros médias : un fichier rangé à part survit à la suppression de son bloc,
+   * puisque le document ne fait que le citer. On passe donc, une fois par démarrage et
+   * sans presser, pour ne garder que ce à quoi un tableau (ou un modèle) renvoie encore.
+   */
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const stored = await mediaKeys()
+        if (!stored.length) return
+
+        const used = new Set()
+        const index = await loadIndex()
+        for (const board of index.boards) {
+          const saved = board.id === boardIdRef.current ? docRef.current : await loadBoard(board.id)
+          for (const key of keysOf(saved)) used.add(key)
+        }
+        for (const stencil of await loadStencils()) {
+          for (const key of keysOf(stencil)) used.add(key)
+        }
+
+        const orphans = stored.filter((key) => !used.has(key))
+        if (orphans.length) await deleteMedia(orphans)
+      } catch {
+        /* le ménage peut attendre le prochain démarrage */
+      }
+    }, 8000)
+    return () => clearTimeout(timer)
+  }, [])
 
   /* ---------- graphiques ---------- */
 

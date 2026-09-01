@@ -1,3 +1,4 @@
+import { isLocalAsset, useAssetSource } from '../lib/assets.js'
 import { IconDownload } from './Icons.jsx'
 import './FileBlock.css'
 
@@ -21,10 +22,12 @@ function formatSize(bytes) {
  * place dans la planche.
  */
 export default function FileBlock({ item, active }) {
+  const src = useAssetSource(item)
+
   return (
     <a
       className="file"
-      href={item.src}
+      href={src ?? undefined}
       download={item.name}
       onPointerDown={(event) => active && event.stopPropagation()}
       onClick={(event) => !active && event.preventDefault()}
@@ -35,6 +38,7 @@ export default function FileBlock({ item, active }) {
         <small>
           {formatSize(item.size)}
           {item.why ? ` · ${item.why}` : ''}
+          {isLocalAsset(item) ? ' · local' : ''}
         </small>
       </span>
       <span className="file__get" aria-hidden>

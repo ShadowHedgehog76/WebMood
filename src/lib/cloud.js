@@ -6,6 +6,8 @@
  * Le client est chargé à la demande — personne ne paie ces kilo-octets sans s'en servir.
  */
 
+import { getMedia } from './storage.js'
+
 const URL = import.meta.env.VITE_SUPABASE_URL
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 const BUCKET = 'board-images'
@@ -196,34 +198,68 @@ function decodeDataUrl(source) {
 /** Tout ce qui voyage en `data:` : images, vidéos, sons, PDF, polices, pièces jointes. */
 const HEAVY = new Set(['image', 'media', 'font', 'file'])
 
+/** Au-delà, l'envoi simple du Storage refuse : le fichier reste sur la machine. */
+const MAX_UPLOAD = 45 * 1024 * 1024
+
+const travels = (item) =>
+  HEAVY.has(item.type) &&
+  (item.src?.startsWith('data:') || (item.blobKey && (item.size ?? 0) <= MAX_UPLOAD))
+
+/**
+ * Fait monter dans le Storage tout ce qui pèse : les fichiers rangés dans le document
+ * (`data:`) comme les gros médias gardés à part. Une fois en ligne, ils voyagent — c'est
+ * ce qui permet de retrouver ses vidéos depuis un autre appareil.
+ */
 export async function uploadAssets(doc, userId) {
   const items = doc.items ?? []
-  if (!items.some((item) => HEAVY.has(item.type) && item.src?.startsWith('data:'))) return doc
+  if (!items.some(travels)) return doc
 
   const supabase = await db()
   const next = []
   for (const item of items) {
-    if (!HEAVY.has(item.type) || !item.src?.startsWith('data:')) {
+    if (!travels(item)) {
       next.push(item)
       continue
     }
-    const file = decodeDataUrl(item.src)
-    if (!file) {
+
+    // Deux provenances possibles, un seul chemin d'envoi.
+    let bytes = null
+    let type = null
+    let key = null
+    if (item.src?.startsWith('data:')) {
+      const file = decodeDataUrl(item.src)
+      if (file) {
+        bytes = file.bytes
+        type = file.type
+        key = await digest(item.src)
+      }
+    } else {
+      const blob = await getMedia(item.blobKey)
+      if (blob) {
+        bytes = blob
+        type = item.mime || blob.type || 'application/octet-stream'
+        key = await digest(`${item.blobKey}:${item.size}`)
+      }
+    }
+    if (!bytes) {
       next.push(item)
       continue
     }
-    const extension = file.type.split('/')[1]?.replace('+xml', '') ?? 'bin'
-    const path = `${userId}/${await digest(item.src)}.${extension}`
+
+    const extension = type.split('/')[1]?.replace('+xml', '') ?? 'bin'
+    const path = `${userId}/${key}.${extension}`
 
     const { error } = await supabase.storage
       .from(BUCKET)
-      .upload(path, file.bytes, { contentType: file.type, upsert: true })
+      .upload(path, bytes, { contentType: type, upsert: true })
     if (error && !/exists/i.test(error.message)) {
       next.push(item)
       continue
     }
     const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
-    next.push({ ...item, src: data.publicUrl })
+    // Le bloc pointe désormais une adresse : la copie locale n'a plus à être citée.
+    const { blobKey, ...rest } = item
+    next.push({ ...rest, src: data.publicUrl })
   }
   return { ...doc, items: next }
 }

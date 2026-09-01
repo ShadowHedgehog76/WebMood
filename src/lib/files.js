@@ -1,12 +1,27 @@
 import { guessLang, langFromName } from './highlight.js'
+import { putMedia } from './storage.js'
 import { NODE_H, NODE_W, ROOT_H, ROOT_W } from './mindmap.js'
 import { SKETCH_TEMPLATES } from './sketch.js'
 
 const MAX_IMAGE_DIM = 1800 // au-delà, on rééchantillonne avant de stocker
-// Un média voyage en `data:` dans le document : au-delà, on refuse plutôt que d'alourdir
-// l'enregistrement, la synchronisation et l'envoi en ligne.
-const MAX_MEDIA_BYTES = 40 * 1024 * 1024
+/**
+ * En deçà de cette taille, un média voyage **dans** le document (`data:`) : il part avec
+ * l'export, le partage et la synchronisation. Au-delà, il est rangé à part en `Blob` et
+ * le document n'en garde que la clé — c'est ce qui permet d'accueillir un film entier
+ * sans faire enfler l'enregistrement à chaque frappe.
+ */
+const INLINE_BYTES = 8 * 1024 * 1024
+/** Plafond absolu : au-delà, même IndexedDB devient déraisonnable. */
+const MAX_MEDIA_BYTES = 4 * 1024 * 1024 * 1024
 const MEDIA_WIDTH = 480
+
+/** Range le fichier là où son poids l'impose, et rend de quoi le retrouver. */
+async function keepFile(file) {
+  if (file.size <= INLINE_BYTES) return { src: await readAsDataUrl(file) }
+  const key = `blob-${newId()}`
+  await putMedia(key, file)
+  return { blobKey: key, mime: file.type || 'application/octet-stream', size: file.size }
+}
 const DEFAULT_IMAGE_WIDTH = 420
 const CODE_WIDTH = 460
 const CODE_LINE_HEIGHT = 20
@@ -130,6 +145,11 @@ function probeMedia(src, kind) {
     const giveUp = setTimeout(() => resolve(null), 5000)
     const done = (value) => {
       clearTimeout(giveUp)
+      // On détache la source avant de rendre la main : sans ça, le chargement en cours
+      // se poursuit dans le vide et le navigateur signale une erreur réseau à la
+      // libération de l'adresse.
+      media.removeAttribute('src')
+      media.load()
       resolve(value)
     }
 
@@ -183,19 +203,25 @@ export async function mediaItem(file, at) {
   if (file.size > MAX_MEDIA_BYTES) {
     throw new Error(`${file.name} dépasse 40 Mo : trop lourd pour le document.`)
   }
-  const src = await readAsDataUrl(file)
   let { w, h } = MEDIA_SHAPE[kind]
   let extra = null
 
+  // On interroge le fichier lui-même, par une adresse d'objet : lire un film de 2 Go
+  // en base64 pour découvrir qu'il est illisible serait absurde.
   if (kind !== 'pdf') {
-    const shape = await probeMedia(src, kind)
-    if (!shape) throw new Unplayable(file.name)
-    extra = { duration: shape.duration }
-    if (kind === 'video') {
-      const ratio = shape.width / shape.height
-      w = MEDIA_WIDTH
-      h = Math.round(MEDIA_WIDTH / ratio)
-      extra = { ...extra, ratio, poster: shape.poster }
+    const probeUrl = URL.createObjectURL(file)
+    try {
+      const shape = await probeMedia(probeUrl, kind)
+      if (!shape) throw new Unplayable(file.name)
+      extra = { duration: shape.duration }
+      if (kind === 'video') {
+        const ratio = shape.width / shape.height
+        w = MEDIA_WIDTH
+        h = Math.round(MEDIA_WIDTH / ratio)
+        extra = { ...extra, ratio, poster: shape.poster }
+      }
+    } finally {
+      URL.revokeObjectURL(probeUrl)
     }
   }
 
@@ -204,7 +230,7 @@ export async function mediaItem(file, at) {
     type: 'media',
     kind,
     name: file.name || kind,
-    src,
+    ...(await keepFile(file)),
     ...extra,
     x: Math.round(at.x - w / 2),
     y: Math.round(at.y - h / 2),
@@ -455,7 +481,7 @@ export async function fontItem(file, at) {
  */
 export async function fileItem(file, at, why = null) {
   if (file.size > MAX_MEDIA_BYTES) {
-    throw new Error(`${file.name} dépasse 40 Mo : trop lourd pour le document.`)
+    throw new Error(`${file.name} dépasse 4 Go : c'est au-delà de ce qu'un navigateur garde.`)
   }
   return {
     id: newId(),
@@ -464,7 +490,7 @@ export async function fileItem(file, at, why = null) {
     ext: extensionOf(file),
     size: file.size,
     why,
-    src: await readAsDataUrl(file),
+    ...(await keepFile(file)),
     x: Math.round(at.x - FILE_SIZE.w / 2),
     y: Math.round(at.y - FILE_SIZE.h / 2),
     ...FILE_SIZE,

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAssetSource } from '../lib/assets.js'
 import './FontBlock.css'
 
 const SPECIMEN = 'Voix ambiguë d’un cœur qui, au zéphyr, préfère les jattes de kiwis'
@@ -11,13 +12,15 @@ const SPECIMEN = 'Voix ambiguë d’un cœur qui, au zéphyr, préfère les jatt
 export default function FontBlock({ item }) {
   const [ready, setReady] = useState(false)
   const family = `moodboard-${item.id}`
+  const src = useAssetSource(item)
 
   useEffect(() => {
+    if (!src) return undefined
     let face = null
     let cancelled = false
 
-    // FontFace charge depuis l'adresse `data:` du document : rien à installer.
-    new FontFace(family, `url(${item.src})`)
+    // FontFace charge depuis l'adresse du document : rien à installer sur la machine.
+    new FontFace(family, `url(${src})`)
       .load()
       .then((loaded) => {
         if (cancelled) return
@@ -31,7 +34,7 @@ export default function FontBlock({ item }) {
       cancelled = true
       if (face) document.fonts.delete(face)
     }
-  }, [family, item.src])
+  }, [family, src])
 
   return (
     <div className="font" style={ready ? { fontFamily: `"${family}", system-ui` } : undefined}>

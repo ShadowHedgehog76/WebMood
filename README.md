@@ -257,6 +257,35 @@ ce qui donnait un rectangle noir. Ici le fichier est réellement ouvert ; s'il n
 pas, il devient une pièce jointe qui **dit pourquoi** (« codec non lu par le navigateur »).
 Même chose pour une image annoncée mais non décodée, le HEIC des iPhone par exemple.
 
+Concrètement : **`.mkv` et `.m4a` passent**, comme le reste de ce que le navigateur décode
+— H.264, H.265, VP9, AV1 côté image, AAC, MP3, AC-3, Opus, Vorbis côté son, quel que soit
+le conteneur. Ce qui ne passe pas, ce sont les codecs qu'aucun navigateur ne décode
+(FFV1, HuffYUV) ou qu'un seul décode (ALAC, lu par Safari mais pas par Chrome) : ceux-là
+deviennent une pièce jointe, avec la raison écrite dessus.
+
+### Où vivent les gros fichiers
+
+Un média est rangé selon son poids, et c'est la seule façon d'accueillir un film :
+
+- **jusqu'à 8 Mo**, il voyage **dans** le document, en `data:` — il part avec l'export, le
+  partage et la synchronisation, sans rien de plus à gérer ;
+- **au-delà**, il est rangé **à part** dans IndexedDB, en `Blob`, et le document n'en garde
+  que la clé ([assets.js](src/lib/assets.js)). Un fichier de 376 Mo s'importe en moins de
+  trois secondes et laisse le document à **24 ko** — l'aperçu, et rien d'autre. Passer par
+  le document l'aurait gonflé de 33 % en base64, relu en entier à chaque enregistrement, et
+  renvoyé à chaque battement de synchronisation. Le plafond devient celui du navigateur,
+  pas le nôtre.
+
+Le prix est assumé et affiché : un média rangé à part **ne quitte pas cet appareil**. Les
+blocs concernés portent une étiquette **local**, et l'export JSON prévient qu'il ne les
+emporte pas. Avec un compte, ils montent dans le Storage (jusqu'à 45 Mo, la limite de
+l'envoi simple) et redeviennent des adresses qui voyagent.
+
+Les adresses d'objet sont **partagées et comptées** par clé : deux blocs qui citent le même
+fichier n'en font qu'une, et le démontage de l'un ne révoque pas l'adresse que l'autre est
+en train de lire. Un fichier auquel plus aucun tableau ni modèle ne renvoie est effacé au
+démarrage suivant.
+
 - un **PDF** s'affiche page à page dans le bloc. Le navigateur refuse une adresse `data:`
   dans un cadre : le fichier est donc reconverti en objet local le temps de la vue, et
   libéré en partant — le document, lui, garde la version portable ;
@@ -728,7 +757,8 @@ src/
     Links.jsx               calque SVG des connexions
     Links.css
   lib/
-    storage.js              IndexedDB + repli localStorage
+    storage.js              IndexedDB (documents, modèles, gros médias) + repli localStorage
+    assets.js               d'où vient le contenu d'un bloc : document ou rangement à part
     files.js                fichiers → éléments (image, vidéo, son, PDF, police, pièce jointe…)
     embed.js                liens : intégration chez les services connus, carte ailleurs
     chart.js                graphiques : lecture d'un tableau, échelles, géométrie SVG

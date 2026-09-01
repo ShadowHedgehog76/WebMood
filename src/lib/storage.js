@@ -5,11 +5,12 @@
 
 const DB_NAME = 'moodboard'
 const STORE = 'boards'
+const MEDIA = 'media'
 const INDEX_KEY = 'index'
 const STENCILS_KEY = 'stencils'
 const LEGACY_KEY = 'default'
 const LS_PREFIX = 'moodboard:'
-const VERSION = 1
+const VERSION = 2
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -19,19 +20,22 @@ function openDb() {
     }
     const request = indexedDB.open(DB_NAME, VERSION)
     request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(STORE)) {
-        request.result.createObjectStore(STORE)
-      }
+      const db = request.result
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE)
+      // Les gros médias sont rangés à part, en `Blob` : les mettre dans le document
+      // obligerait à les encoder en base64, à les relire entièrement à chaque
+      // enregistrement, et à les transporter à chaque synchronisation.
+      if (!db.objectStoreNames.contains(MEDIA)) db.createObjectStore(MEDIA)
     }
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
   })
 }
 
-function tx(db, mode, run) {
+function tx(db, mode, run, store = STORE) {
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE, mode)
-    const request = run(transaction.objectStore(STORE))
+    const transaction = db.transaction(store, mode)
+    const request = run(transaction.objectStore(store))
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
   })
@@ -131,4 +135,51 @@ export async function loadStencils() {
 
 export function saveStencils(list) {
   return write(STENCILS_KEY, list)
+}
+
+/* ---------- gros médias ---------- */
+
+/**
+ * Un `Blob` va directement dans IndexedDB : aucune lecture en mémoire, aucun gonflement
+ * de 33 % comme en base64, et le document reste léger — il ne garde qu'une clé.
+ */
+export async function putMedia(key, blob) {
+  const db = await openDb()
+  await tx(db, 'readwrite', (store) => store.put(blob, key), MEDIA)
+  db.close()
+  return key
+}
+
+export async function getMedia(key) {
+  try {
+    const db = await openDb()
+    const blob = await tx(db, 'readonly', (store) => store.get(key), MEDIA)
+    db.close()
+    return blob ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function mediaKeys() {
+  try {
+    const db = await openDb()
+    const keys = await tx(db, 'readonly', (store) => store.getAllKeys(), MEDIA)
+    db.close()
+    return keys ?? []
+  } catch {
+    return []
+  }
+}
+
+export async function deleteMedia(keys) {
+  try {
+    const db = await openDb()
+    for (const key of keys) {
+      await tx(db, 'readwrite', (store) => store.delete(key), MEDIA)
+    }
+    db.close()
+  } catch {
+    /* rien à nettoyer */
+  }
 }
